@@ -24,6 +24,7 @@ function wavURL(seconds, freq, vol){
 }
 const SILENT=wavURL(0.15,0,0);
 const BEEP=wavURL(0.25,880,0.35);
+const DEBUG=/[?&]debug\b/.test(location.search);       // 주소 끝에 ?debug를 붙이면 개발자 도구 콘솔에 소리 크기를 보여 줘요
 export const PLAYER=new Audio();
 PLAYER.preload='auto'; PLAYER.setAttribute('playsinline',''); PLAYER.setAttribute('webkit-playsinline','');
 
@@ -72,6 +73,11 @@ export function fetchTTS(text, voice){
         const ab=await LIVE.ctx.decodeAudioData(buf.slice(0));
         const ch=ab.getChannelData(0), step=Math.round(ab.sampleRate/50); env=new Float32Array(Math.ceil(ch.length/step));
         for(let k=0;k<env.length;k++){ let s=0; const e=Math.min(ch.length,(k+1)*step); for(let i=k*step;i<e;i++) s+=ch[i]*ch[i]; env[k]=Math.sqrt(s/step); }
+        // 목소리 크기는 파일마다 달라요(낮고 차분한 목소리는 작게 나와요). 이 파일의 큰 소리(상위 10%)를 1로 맞춰
+        // 크기와 관계없이 '말하는 구간'과 '쉬는 구간'을 똑같이 가려내요.
+        const sorted=Array.from(env).sort((a,b)=>a-b), p90=sorted[Math.floor(sorted.length*0.9)]||0;
+        if(p90>1e-5){ for(let k=0;k<env.length;k++) env[k]=Math.min(1.2, env[k]/p90); }
+        else env=null;                                   // 거의 무음이면 정보가 없으니 아래에서 흉내 움직임으로
       }
     }catch(e){ env=null; }
     return { url, env };
@@ -81,11 +87,16 @@ export function fetchTTS(text, voice){
   return p;
 }
 async function playClip(clip, voice){
-  let lvl=0;
+  let lvl=0, peak=0, failOpen=!clip.env;
   const ok=await playURL(clip.url, t=>{
-    const raw = clip.env ? (clip.env[Math.floor(t*50)]||0) : 0.12+0.1*Math.abs(Math.sin(t*9));
-    lvl=lvl*0.55+Math.min(1,raw*7)*0.45; setMouth(voice,lvl);
+    // 소리 크기(0~1): env는 이 파일 기준으로 맞춘 값. 정보가 없으면 말하는 듯한 흉내 값을 써요.
+    const raw = !failOpen ? (clip.env[Math.floor(t*50)]||0) : 0.55+0.35*Math.abs(Math.sin(t*9));
+    lvl=lvl*0.55+Math.min(1,raw)*0.45; peak=Math.max(peak,lvl);
+    // 안전장치: 재생 0.7초가 지나도 말하는 구간을 못 찾으면(소리 분석이 안 되는 기기 등) 계속 말하는 영상으로
+    if(!failOpen && t>0.7 && peak<0.2){ failOpen=true; if(DEBUG) console.info('[면접관 영상] 소리 크기를 못 읽어 계속 말하는 영상으로 바꿔요'); }
+    setMouth(voice,lvl);
   });
+  if(DEBUG) console.info('[면접관 영상]', voice, '최대 크기', peak.toFixed(2), failOpen?'(흉내 움직임)':'');
   setMouth(voice,0);
   return ok;
 }
