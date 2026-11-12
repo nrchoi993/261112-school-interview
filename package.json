@@ -1,0 +1,15 @@
+{
+  "name": "seoul-hs-interview-bot",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "서울 특성화고 면접 연습 챗봇 (Vercel 서버 함수 + Upstash Redis + OpenAI)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "8.3.5"
+  }
+}

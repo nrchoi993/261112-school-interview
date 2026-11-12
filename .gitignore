@@ -1,0 +1,16 @@
+# 의존성·빌드 결과
+node_modules/
+dist/
+
+# 환경 변수: 실제 API 키가 들어 있으므로 절대 커밋하지 않아요
+.env
+.env.local
+.env.*.local
+# 키 없는 예시 파일은 올려도 돼요
+!.env.example
+
+# 기타
+.DS_Store
+*.log
+.vite/
+.vercel

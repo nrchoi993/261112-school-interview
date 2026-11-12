@@ -1,0 +1,36 @@
+/* ---------- 기록(학생 내 기록·교사 상세 공용) ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0 0 16px}
+.kpi{background:var(--soft);border-radius:12px;padding:10px 12px}
+.kpi b{display:block;font-size:24px;font-weight:800;line-height:1.2;font-variant-numeric:tabular-nums}
+.kpi span{font-size:12px;color:var(--muted)}
+.rec-filter{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.rec-filter button{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.rec-filter button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.logs{display:flex;flex-direction:column;gap:8px}
+.log{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff}
+.log-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.log-h .score{margin-left:auto;font-weight:800;font-size:15px;color:var(--ink)}
+.log-h .score.g1{color:var(--mint)}.log-h .score.g3{color:var(--coral)}
+.log-q{font-weight:700;margin:4px 0 2px}
+.log-a{font-size:14px;white-space:pre-wrap;color:var(--ink-2)}
+.log.lchat{background:var(--soft);border-style:dashed}
+.log.lchat.ai{background:#fff}
+.log.live{border:2px solid var(--ink)}
+.log details{margin-top:6px;font-size:13px}
+.log details summary{cursor:pointer;font-weight:700;color:var(--ink-2)}
+.log details ul{margin:4px 0;padding-left:18px}
+.mini-crit{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px 10px;margin:6px 0;font-size:12.5px}
+.mini-crit span b{font-variant-numeric:tabular-nums}
+mark.ph{background:var(--yellow-soft);color:var(--ink);border:1px dashed #B7860B;border-radius:4px;padding:0 3px;font-weight:700}
+.ground-note{margin:6px 0 8px;background:#fff;border-left:4px solid #B7860B;border-radius:6px;padding:7px 10px;font-size:12.5px;color:var(--ink-2)}
+.ground-note b{color:#8A6508;margin-right:4px}
+.empty-note{color:var(--muted);font-size:14px;padding:18px;text-align:center;border:1.5px dashed var(--line);border-radius:12px}
+.chart-box{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:14px;background:#fff;position:relative}
+.chart-box h4{margin:0 0 6px;font-size:13px;color:var(--ink-2)}
+.chart-box svg{width:100%;height:auto;display:block;overflow:visible}
+.chart-tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;border-radius:6px;padding:3px 8px;font-size:12px;white-space:nowrap;transform:translate(-50%,-120%);display:none}
+.bars{display:grid;gap:6px}
+.bar-row{display:grid;grid-template-columns:110px 1fr 44px;gap:8px;align-items:center;font-size:12.5px}
+.bar-row .tr{height:10px;background:var(--soft);border-radius:5px;overflow:hidden}
+.bar-row .tr i{display:block;height:100%;background:var(--ink);border-radius:0 4px 4px 0}
+.bar-row b{text-align:right;font-variant-numeric:tabular-nums}
