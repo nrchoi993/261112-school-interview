@@ -52,7 +52,15 @@ export function cleanEntry(e){
     const d = e.delivery && typeof e.delivery === 'object' ? {
       sec: num(e.delivery.sec, 0, 3600), latency: num(e.delivery.latency, 0, 600), cpm: num(e.delivery.cpm, 0, 2000),
       fillers: num(e.delivery.fillers, 0, 999), voiced: num(e.delivery.voiced, 0, 1), limit: num(e.delivery.limit, 0, 3600),
-      stt: clip(e.delivery.stt, 20)
+      stt: clip(e.delivery.stt, 20),
+      pauses: num(e.delivery.pauses, 0, 99), longPause: num(e.delivery.longPause, 0, 600), cam: clip(e.delivery.cam, 12),
+      fillerWords: e.delivery.fillerWords && typeof e.delivery.fillerWords === 'object'
+        ? Object.fromEntries(Object.entries(e.delivery.fillerWords).slice(0, 8).map(([k, v]) => [clip(k, 6), num(v, 0, 999) ?? 0])) : null,
+      face: e.delivery.face && typeof e.delivery.face === 'object' ? {
+        look: num(e.delivery.face.look, 0, 100), down: num(e.delivery.face.down, 0, 100), side: num(e.delivery.face.side, 0, 100),
+        miss: num(e.delivery.face.miss, 0, 100), center: num(e.delivery.face.center, 0, 100), smile: num(e.delivery.face.smile, 0, 100),
+        move: num(e.delivery.face.move, 0, 50)
+      } : null
     } : null;
     return {
       type: 'answer', at, mode: e.mode === 'live' ? 'live' : 'chat',

@@ -69,8 +69,13 @@ export function meterLoop(){
     if(LIVE.state==='answering'){
       const dt=LIVE.lastT?now-LIVE.lastT:0;
       const on = rms > Math.max(0.012, LIVE.noise*3);
-      if(on){ LIVE.voiced+=dt; if(!LIVE.firstAt && now-LIVE.t0>150) LIVE.firstAt=now; }
-      else LIVE.noise = LIVE.noise*0.98 + rms*0.02;
+      if(on){
+        LIVE.voiced+=dt; if(!LIVE.firstAt && now-LIVE.t0>150) LIVE.firstAt=now;
+        if(LIVE.silentFrom){ const gap=(now-LIVE.silentFrom)/1000; if(LIVE.firstAt && gap>=2){ LIVE.pauses++; LIVE.longPause=Math.max(LIVE.longPause,gap); } LIVE.silentFrom=0; }
+      }else{
+        LIVE.noise = LIVE.noise*0.98 + rms*0.02;
+        if(LIVE.firstAt && !LIVE.silentFrom) LIVE.silentFrom=now;   // 말을 시작한 뒤의 조용한 구간
+      }
     }else LIVE.noise = LIVE.noise*0.95 + Math.min(rms,0.05)*0.05;
     LIVE.lastT=now;
     LIVE.meterRaf=requestAnimationFrame(step);

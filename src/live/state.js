@@ -12,6 +12,12 @@ export const LIVE={
 };
 export const FILLER_RE=/(^|[\s,.!?…~])(음+|으음+|어+|으+|아+|에+|저기|뭐지|뭐랄까|그니까)(?=[\s,.!?…~]|$)/g;
 export function countFillers(t){ return (String(t).match(FILLER_RE)||[]).length; }
+/* 말버릇을 낱말별로 세기: {'음':2,'어':1} (‘음음’은 ‘음’으로 묶어요) */
+export function fillerBreakdown(t){
+  const out={};
+  for(const m of String(t).matchAll(FILLER_RE)){ let w=m[2].replace(/(.)\1+$/,'$1'); if(w==='으음') w='음'; out[w]=(out[w]||0)+1; }
+  return out;
+}
 export const voiceFor=i=>{ const m=$('#lvVoice').value; return m==='alt'?(i%2===0?'female':'male'):m; };
 export function liveStatus(t, sub){ $('#liveStatus').innerHTML=`${esc(t)}${sub?`<small>${esc(sub)}</small>`:''}`; }
 export function liveSub(text, voice, dim){
@@ -32,5 +38,6 @@ export function renderLiveEnv(){
   const SRok=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
   const stt = v.stt&&v.stt.enabled&&logged ? 'AI 받아쓰기' : SRok ? '브라우저 음성 인식' : '직접 입력';
   const score = API.key&&logged ? 'AI 면접관' : '기본(규칙) 평가';
-  $('#liveEnvNote').textContent=`지금 설정: 면접관 목소리 ${tts} · 받아쓰기 ${stt} · 채점 ${score}.`;
+  const face = $('#lvCam').value==='on' && $('#lvFace').value==='on' ? '시선·자세 분석 켜짐(이 기기 안)' : '시선·자세 분석 꺼짐';
+  $('#liveEnvNote').textContent=`지금 설정: 면접관 목소리 ${tts} · 받아쓰기 ${stt} · 채점 ${score} · ${face}.`;
 }

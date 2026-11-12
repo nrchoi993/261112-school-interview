@@ -97,3 +97,15 @@
 .countdown em{font-style:normal;font-weight:800;color:#fff;font-size:15px;letter-spacing:.5px;background:rgba(0,0,0,.35);border-radius:999px;padding:4px 12px}
 @keyframes cdPop{0%{transform:scale(1.8);opacity:0}40%{transform:scale(.95);opacity:1}100%{transform:scale(1)}}
 @media (max-width:760px){ .repeat-row{margin:0 -8px} .countdown span{font-size:72px} }
+
+/* 말하기·태도 평가표 */
+.talk-sheet{margin-top:12px}
+.talk-sheet .crow{grid-template-columns:96px 92px 1fr}
+.talk-sheet .cc .tv{display:block;color:var(--ink);font-size:13.5px;margin-bottom:1px;font-variant-numeric:tabular-nums}
+.talk-sheet.compact{border-width:1px;margin:6px 0}
+.talk-sheet.compact .sheet-top{padding:8px 12px}
+.talk-sheet.compact h4{font-size:14px}
+@media (max-width:560px){.talk-sheet .crow{grid-template-columns:1fr 92px}}
+/* 시선 기준 맞추기 */
+.calib-dot{width:22px;height:22px;border-radius:50%;background:var(--yellow);box-shadow:0 0 0 6px rgba(255,200,61,.35),0 0 0 14px rgba(255,200,61,.15);animation:calibPulse 1s ease-in-out infinite}
+@keyframes calibPulse{50%{transform:scale(1.25)}}

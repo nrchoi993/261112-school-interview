@@ -14,3 +14,7 @@ dist/
 *.log
 .vite/
 .vercel
+
+# 얼굴 분석 실행 파일(빌드할 때 node_modules에서 자동 복사)
+public/mediapipe/wasm/
+# 얼굴 모델을 직접 받아 두었다면 올려도 돼요(약 3.7MB). 기본은 Google 공식 주소에서 받아요.

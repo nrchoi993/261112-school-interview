@@ -4,6 +4,7 @@ import { gradeOf } from '../feedback/rules.js';
 import { $, esc } from '../lib/dom.js';
 import { FILLER_RE } from '../live/state.js';
 import { AUTH, LOGS } from '../student/auth.js';
+import { talkSheetHTML } from '../live/report.js';
 
 /* =========================================================
    8. 기록 보기 (학생 ‘내 기록’ 탭과 교사 대시보드 학생 상세에서 함께 써요)
@@ -30,7 +31,9 @@ export function trendSVG(ans){
   const grid=[0,50,100].map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="12" fill="var(--muted)">${v}</text>`).join('');
   const d=pts.map((a,i)=>`${i?'L':'M'}${x(i).toFixed(1)} ${y(a.total).toFixed(1)}`).join(' ');
   const dots=pts.map((a,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(a.total).toFixed(1)}" r="4" fill="var(--ink)" stroke="#fff" stroke-width="2"/>`).join('');
-  const hits=pts.map((a,i)=>`<rect class="hit" x="${(x(i)-(W-L-R)/pts.length/2).toFixed(1)}" y="${T}" width="${((W-L-R)/pts.length).toFixed(1)}" height="${H-T-B}" fill="transparent" data-tip="${esc(`${fmtDate(a.at)} · ${a.total}점 · ${a.mode==='live'?'실전':'모의'}`)}" data-x="${x(i).toFixed(1)}" data-y="${y(a.total).toFixed(1)}"/>`).join('');
+  // 마우스·손가락 인식 영역: 점과 점 사이 가운데까지, 그래프 안쪽으로만(작은 화면에서 밖으로 삐져나오지 않게)
+  const half=(W-L-R)/(pts.length-1)/2, x0=i=>Math.max(L,x(i)-half), x1=i=>Math.min(W-R,x(i)+half);
+  const hits=pts.map((a,i)=>`<rect class="hit" x="${x0(i).toFixed(1)}" y="${T}" width="${(x1(i)-x0(i)).toFixed(1)}" height="${H-T-B}" fill="transparent" data-tip="${esc(`${fmtDate(a.at)} · ${a.total}점 · ${a.mode==='live'?'실전':'모의'}`)}" data-x="${x(i).toFixed(1)}" data-y="${y(a.total).toFixed(1)}"/>`).join('');
   return `<div class="chart-box"><h4>최근 답변 점수 추이 (최근 ${pts.length}개, 100점 만점)</h4>
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 답변 점수 추이">${grid}<path d="${d}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/>${dots}${hits}</svg><span class="chart-tip"></span></div>`;
 }
@@ -54,15 +57,10 @@ export function critBarsHTML(crit){
 export function fillerMark(text){
   return esc(text).replace(FILLER_RE,(m,pre,w)=>`${pre}<mark>${w}</mark>`);
 }
+/* 말하기·태도 평가표(간단히): 실전 면접 결과 카드와 같은 내용을 기록에서도 보여 줘요 */
 export function deliveryHTML(d){
   if(!d) return '';
-  const sp = d.cpm==null?'':d.cpm<200?'느린 편':d.cpm>380?'빠른 편':'알맞음';
-  return `<div class="dl-grid">
-    <div class="${d.limit&&d.sec>=d.limit?'bad':''}"><b>${fmtSec(d.sec)}</b><span>답변 시간${d.limit?` / ${fmtSec(d.limit)}`:''}</span></div>
-    <div class="${d.latency>5?'bad':''}"><b>${d.latency==null?'-':d.latency.toFixed(1)+'초'}</b><span>첫 마디까지</span></div>
-    <div class="${sp&&sp!=='알맞음'?'bad':''}"><b>${d.cpm==null?'-':d.cpm}</b><span>말 속도 (자/분) ${sp}</span></div>
-    <div class="${d.fillers>=5?'bad':''}"><b>${d.fillers==null?'-':d.fillers+'번'}</b><span>‘음·어’ 말버릇</span></div>
-  </div>`;
+  return talkSheetHTML(d, { compact:true });
 }
 export function logItemHTML(e){
   if(e.type==='chat') return `<div class="log lchat ${e.role==='assistant'?'ai':''}"><div class="log-h"><b>${e.role==='assistant'?'AI 코치':'학생'}</b><span>${fmtDate(e.at)}</span></div><div class="log-a">${esc(e.text)}</div></div>`;
