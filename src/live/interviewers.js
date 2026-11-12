@@ -112,10 +112,28 @@ export function mountInterviewers(){
 }
 export const IV_EL={ female:$('#ivF'), male:$('#ivM') };
 export const IV_NAME={ female:'면접위원 A', male:'면접위원 B' };
+/* 말하는 영상을 실제 목소리에 맞추기
+   - 소리가 날 때만 말하는 영상을 재생하고, 문장 사이에 0.23초 넘게 조용하면 멈추고 듣는 영상으로 바꿔요.
+     (다시 소리가 나면 멈춘 곳부터 이어서 재생해 입 움직임이 끊기지 않아요)
+   - 소리가 클수록 조금 빠르게(0.85~1.15배) 재생해 말의 강약과 입 움직임이 비슷하게 느껴지게 해요.
+   - 영상 파일 자체도 원본보다 0.7배 느리게(중간 장면을 채워 넣어 부드럽게) 만들어 두었어요. */
+const TALK_ON=0.16, HOLD_MS=230;
+function talkGate(voice, l){
+  const p=PHOTO[voice]; if(!p||!p.talk) return;
+  const now=performance.now();
+  if(l>=TALK_ON) p.loudAt=now;
+  const want=!!p.speaking && now-(p.loudAt||0)<HOLD_MS;
+  if(want!==p.talkOn){
+    p.talkOn=want;
+    if(want){ clearTimeout(p.pauseT); p.talk.play().catch(()=>{}); p.talk.classList.add('on'); }
+    else{ p.talk.classList.remove('on'); clearTimeout(p.pauseT); p.pauseT=setTimeout(()=>{ if(!p.talkOn) p.talk.pause(); },200); }
+  }
+  if(want){ const r=Math.round((0.85+0.3*l)*20)/20; if(p.talk.playbackRate!==r) p.talk.playbackRate=r; }
+}
 export function setMouth(voice, level){
   const fig=IV_EL[voice]; if(!fig) return;
   const l=Math.max(0,Math.min(1,level));
-  if(PHOTO[voice]){ PHOTO[voice].box.style.setProperty('--lvl', l.toFixed(3)); return; }   // 사진: 소리 크기만큼 빛·움직임
+  if(PHOTO[voice]){ PHOTO[voice].box.style.setProperty('--lvl', l.toFixed(3)); talkGate(voice,l); return; }   // 사진: 소리 크기만큼 빛·움직임
   fig.querySelector('.mo').setAttribute('ry', (0.01+l*7.5).toFixed(2));
   fig.querySelector('.mo').setAttribute('rx', (8+l*2.5).toFixed(2));
   fig.querySelector('.teeth').setAttribute('ry', (l>0.25?Math.min(2.2,l*3):0).toFixed(2));
@@ -128,7 +146,7 @@ export function setSpeaking(voice){
     el.classList.toggle('speaking',on);
     if(!on) setMouth(k,0);
     const p=PHOTO[k]; if(!p||!p.talk) return;
-    if(on){ p.talk.currentTime=0; p.talk.play().catch(()=>{}); p.talk.classList.add('on'); }
-    else{ p.talk.classList.remove('on'); setTimeout(()=>{ if(!p.talk.classList.contains('on')) p.talk.pause(); },200); }
+    if(on){ if(!p.speaking){ p.speaking=true; p.talkOn=false; p.loudAt=0; try{ p.talk.currentTime=0; }catch(e){} } }   // 실제 소리가 나면 talkGate가 재생해요
+    else{ p.speaking=false; p.talkOn=false; p.talk.classList.remove('on'); clearTimeout(p.pauseT); p.pauseT=setTimeout(()=>{ if(!p.talkOn) p.talk.pause(); },200); }
   });
 }
