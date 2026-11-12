@@ -1,4 +1,5 @@
 /* 학생 입실 확인(로그인), 기록 서버 저장, 비밀번호 바꾸기 */
+import { maybeLoginGuide } from '../ui/guide.js';
 import { API } from '../ai/api.js';
 import { bot, resetChat, updateStats } from '../chat/chat.js';
 import { $, esc } from '../lib/dom.js';
@@ -111,15 +112,17 @@ export async function submitGate(ev){
       say('내 기록을 만들고 있어요…',true);
       const r=await stuApi('register',{sid,name,pw,profile:{...DEFAULT_PROFILE}});
       if(!r.ok) return say(r.error.message);
-      return applyLogin(r,true);
+      applyLogin(r,true); loginGuide(r); return;
     }
     say('확인하고 있어요…',true);
     const r=await stuApi('login',{sid,name,pw});
     if(r.code==='new') return gateMode('new');
     if(!r.ok){ $('#gPw').value=''; $('#gPw').focus(); return say(r.error.message); }
-    applyLogin(r,false);
+    applyLogin(r,false); loginGuide(r);
   }finally{ btn.disabled=false; }
 }
+/* 로그인하면 사용 안내를 보여 줘요(임시 비밀번호라 비밀번호부터 바꿔야 할 때는 건너뛰어요) */
+function loginGuide(r){ const st=r.state; if(st&&!st.temp) maybeLoginGuide(st.sid+'|'+st.name); }
 export function applyLogin(r, created, opts){
   const st=r.state;
   AUTH.student={ token:r.token||AUTH.student&&AUTH.student.token, sid:st.sid, name:st.name, temp:st.temp };

@@ -113,16 +113,19 @@ export function mountInterviewers(){
 export const IV_EL={ female:$('#ivF'), male:$('#ivM') };
 export const IV_NAME={ female:'면접위원 A', male:'면접위원 B' };
 /* 말하는 영상을 실제 목소리에 맞추기
-   - 소리가 날 때만 말하는 영상을 재생하고, 문장 사이에 0.23초 넘게 조용하면 멈추고 듣는 영상으로 바꿔요.
-     (다시 소리가 나면 멈춘 곳부터 이어서 재생해 입 움직임이 끊기지 않아요)
+   - 면접관 목소리가 실제로 나오기 시작하면 말하는 영상으로 바꾸고, 말이 다 끝날 때까지 계속 말하는 영상만 보여 줘요.
+     (문장 사이 쉼마다 듣는 영상으로 바꾸면 화면이 끊겨 보여서 바꾸지 않아요)
    - 소리가 클수록 조금 빠르게(0.85~1.15배) 재생해 말의 강약과 입 움직임이 비슷하게 느껴지게 해요.
    - 영상 파일 자체도 원본보다 0.7배 느리게(중간 장면을 채워 넣어 부드럽게) 만들어 두었어요. */
-const TALK_ON=0.16, HOLD_MS=230;
+const TALK_ON=0.16;
 function talkGate(voice, l){
   const p=PHOTO[voice]; if(!p||!p.talk) return;
   const now=performance.now();
   if(l>=TALK_ON) p.loudAt=now;
-  const want=!!p.speaking && now-(p.loudAt||0)<HOLD_MS;
+  // 소리가 처음 나는 순간부터 말이 완전히 끝날 때(setSpeaking(null))까지는 말하는 영상만 보여 줘요.
+  // 문장 사이 짧은 쉼에서 듣는 영상으로 바꾸면 화면이 툭툭 끊겨 보이기 때문이에요.
+  // (음성을 받아 오는 동안처럼 아직 소리가 나기 전에는 듣는 영상 그대로)
+  const want=!!p.speaking && !!p.loudAt;
   if(want!==p.talkOn){
     p.talkOn=want;
     if(want){ clearTimeout(p.pauseT); p.talk.play().catch(()=>{}); p.talk.classList.add('on'); }

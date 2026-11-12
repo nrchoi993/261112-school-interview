@@ -109,7 +109,9 @@ export function askQ(q){
   bot(qCardHTML(q, idx));
   S.convo.push({role:'assistant', content:`[면접 질문] ${fill(q.q)}`});
   awaitingChips();
-  $('#answer').focus();
+  // PC는 바로 입력칸으로. 휴대폰은 키보드가 질문을 가리지 않게, 학생이 입력칸을 누를 때 키보드가 올라와요
+  if(!matchMedia('(pointer:coarse)').matches) $('#answer').focus();
+  updateDockQ();
   if(S.mode==='real'||$('#timerOn').checked) startTimer(); else $('#timer').textContent='';
 }
 
@@ -128,6 +130,7 @@ export async function submit(){
   const ta=$('#answer'); const text=ta.value.trim();
   if(!text) return;
   ta.value=''; updateCount(); autoSize();
+  if(document.body.classList.contains('kb-open')) ta.blur();   // 휴대폰: 보내면 키보드를 내려 평가를 바로 보게
   me(text);
   if(!S.awaiting){
     logEntry({ type:'chat', role:'user', text });
@@ -332,6 +335,45 @@ $('#sendBtn').onclick=submit;
 $('#timerOn').onchange=e=>{ if(S.awaiting&&e.target.checked) startTimer(); if(!e.target.checked&&S.mode!=='real') stopTimer(); };
 
 initVoiceInput();
+initTypingMode();
+}
+
+/* ---------- 휴대폰에서 답 쓰기 ----------
+   입력칸을 누르면 키보드가 화면 절반을 덮어요. 그래서 입력하는 동안에는
+   - 입력 상자(질문 + 입력칸 + 버튼)를 키보드 바로 위에 붙이고
+   - 지금 답하는 질문을 입력칸 위에 함께 보여 줘서, 키보드를 내렸다 올렸다 하지 않아도 되게 해요.
+   - 질문 추천 버튼·시간 재기 같은 것은 잠깐 숨겨 자리를 넓혀요. */
+export function updateDockQ(){
+  const on=!!(S.awaiting&&S.cur);
+  $('#dockQ').hidden=!on;
+  if(on) $('#dockQText').textContent=fill(S.cur.q);
+}
+function initTypingMode(){
+  const dock=$('#dock'), vv=window.visualViewport, root=document.documentElement;
+  const phone=()=>matchMedia('(max-width:760px)').matches;
+  // 휴대폰에서는 입력 상자가 화면 아래에 붙어 있어서, 새 메시지로 화면을 옮길 때 그 높이만큼 비켜 줘요
+  const setDockH=()=>root.style.setProperty('--dockH', (phone()&&!document.body.classList.contains('kb-open')?dock.offsetHeight:0)+'px');
+  if('ResizeObserver' in window) new ResizeObserver(setDockH).observe(dock); setDockH();
+  const place=()=>{
+    if(!document.body.classList.contains('kb-open')) return;
+    const h=vv?vv.height:innerHeight;
+    const kb=vv?Math.max(0, innerHeight-vv.height-vv.offsetTop):0;   // 키보드 높이(화면 아래에서 얼마나 가렸는지)
+    dock.style.bottom=kb+'px';
+    root.style.setProperty('--vvh', h+'px');
+  };
+  let offT=0;
+  ta.addEventListener('focus',()=>{
+    clearTimeout(offT);
+    if(!phone()) return;
+    updateDockQ();
+    document.body.classList.add('kb-open'); setDockH();
+    place(); setTimeout(place,300); setTimeout(place,700);          // 키보드가 다 올라온 뒤 한 번 더 맞춰요
+  });
+  ta.addEventListener('blur',()=>{
+    // 바로 풀면 '보내기'를 누르는 순간 버튼 위치가 바뀌어 눌리지 않을 수 있어서 잠깐 기다려요
+    offT=setTimeout(()=>{ if(document.activeElement===ta) return; document.body.classList.remove('kb-open'); dock.style.bottom=''; setDockH(); },250);
+  });
+  if(vv){ vv.addEventListener('resize',place); vv.addEventListener('scroll',place); }
 }
 
 /* ---------- 말로 답하기 ----------
@@ -437,5 +479,5 @@ export function resetChat(kind){
   if(typeof kind!=='string'){ S.convo=[]; saveRemote(); }   // ‘대화 초기화’ 버튼: AI가 기억하는 대화도 지워요
   S.cur=null; S.awaiting=false; S.mode='free'; S.queue=[]; S.realRes=[];
   greet(typeof kind==='string'?kind:'');
-  if($('#gate').hidden) $('#answer').focus();
+  if($('#gate').hidden && !matchMedia('(pointer:coarse)').matches) $('#answer').focus();
 }

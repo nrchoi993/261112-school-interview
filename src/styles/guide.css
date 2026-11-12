@@ -1,0 +1,50 @@
+/* ---------- 사용 안내 팝업 · 머리글 '사용 안내' 버튼 ---------- */
+.help-btn{display:inline-flex;align-items:center;gap:7px;flex:none;border:1.5px solid var(--ink);background:#fff;color:var(--ink);
+  border-radius:999px;padding:6px 14px 6px 6px;font-size:13.5px;font-weight:800;min-height:38px;box-shadow:0 2px 0 var(--ink)}
+.help-btn .q{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--yellow);display:grid;place-items:center;font-size:15px;font-weight:900;line-height:1}
+.help-btn:hover{background:var(--yellow-soft)}
+.help-btn:active{transform:translateY(1px);box-shadow:0 1px 0 var(--ink)}
+
+.guide-dlg{border:2px solid var(--ink);border-radius:20px;padding:0;width:min(520px,calc(100vw - 24px));max-height:min(640px,calc(100dvh - 24px));
+  color:var(--ink);background:#fff;box-shadow:0 6px 0 var(--ink),0 24px 60px rgba(27,37,89,.35);overflow:hidden}
+.guide-dlg[open]{display:flex;flex-direction:column}
+.guide-dlg::backdrop{background:rgba(20,26,58,.55)}
+.g-top{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 0 20px}
+.g-count{font-size:12.5px;font-weight:800;color:var(--muted);letter-spacing:.5px;font-variant-numeric:tabular-nums}
+.g-x{width:40px;height:40px;border:0;border-radius:50%;background:var(--soft);color:var(--ink-2);font-size:16px;font-weight:800}
+.g-x:hover{background:var(--line)}
+.g-step{padding:4px 24px 6px;overflow-y:auto;flex:1;min-height:0}
+.g-ico{width:58px;height:58px;border-radius:16px;background:var(--yellow);display:grid;place-items:center;font-size:30px;box-shadow:0 3px 0 var(--ink);margin:2px 0 12px}
+.g-step h3{margin:0 0 10px;font-size:20px;line-height:1.35;letter-spacing:-.2px}
+.g-body{font-size:15px;line-height:1.65;color:var(--ink-2)}
+.g-body p{margin:0 0 8px}
+.g-body ul{margin:0;padding-left:1.15em;display:grid;gap:7px}
+.g-body b{color:var(--ink)}
+.g-dots{display:flex;justify-content:center;gap:4px;padding:10px 0 4px}
+.g-dots button{width:28px;height:28px;border:0;background:none;padding:0;display:grid;place-items:center}
+.g-dots button::before{content:"";width:8px;height:8px;border-radius:999px;background:var(--line);transition:width .2s,background .2s}
+.g-dots button.on::before{width:22px;background:var(--ink)}
+.g-off{display:flex;align-items:center;gap:8px;justify-content:center;font-size:13px;color:var(--muted);padding:2px 20px 0;min-height:36px}
+.g-off[hidden]{display:none}
+.g-off input{width:18px;height:18px}
+.g-actions{display:grid;grid-template-columns:1fr 2fr;gap:10px;padding:10px 20px 18px}
+.g-actions .btn{padding:12px;font-size:15px;border-radius:12px}
+.g-actions .btn:disabled{opacity:.35}
+
+@media (max-width:760px){
+  .help-btn{padding:4px;min-height:0;box-shadow:0 2px 0 var(--ink)}
+  .help-btn .help-t{display:none}
+  .help-btn .q{width:28px;height:28px}
+  .guide-dlg{border-radius:18px}
+  .g-step{padding:2px 18px 4px}
+  .g-step h3{font-size:18.5px}
+  .g-ico{width:50px;height:50px;font-size:26px;margin-bottom:10px}
+  .g-body{font-size:15px}
+  .g-actions{padding:8px 16px calc(14px + env(safe-area-inset-bottom))}
+  .g-actions .btn{padding:13px}
+}
+@media (prefers-reduced-motion:reduce){ .g-dots button::before{transition:none} }
+/* 머리글: '사용 안내'는 오른쪽 끝에 */
+.top .help-btn{margin-left:auto}
+.top .dday,.top .api-pill{margin-left:0}
+@media (max-width:760px){ .top .dday{margin-left:auto} .top .help-btn{margin-left:0} .top .api-pill{margin-left:auto} .top .api-pill:not([hidden]) ~ .dday{margin-left:0} }

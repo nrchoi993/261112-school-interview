@@ -7,6 +7,7 @@ import './styles/login.css';
 import './styles/live.css';
 import './styles/records.css';
 import './styles/dashboard.css';
+import './styles/guide.css';
 import './styles/mobile.css';
 import { API, loadHealth, renderApiPanel, renderApiPill } from './ai/api.js';
 import { groundImproved } from './ai/grounding.js';
@@ -19,6 +20,7 @@ import { initLive } from './live/flow.js';
 import { mountInterviewers } from './live/interviewers.js';
 import { LIVE, renderLiveEnv } from './live/state.js';
 import { S } from './state.js';
+import { initGuide, maybeFirstVisitGuide, openGuide } from './ui/guide.js';
 import { applyLogin, AUTH, closeStuPw, gateMode, hideGate, initStuPwDialog, initSyncBeacon, logout, LOGS, openStuPw, showGate, STU_KEY, stuApi, submitGate, submitStuPw } from './student/auth.js';
 import { ADMIN, closeAdminDialog, openAdminDialog, setAdmin, submitAdminLogin, submitPwChange, TEACHER, TEACHER_KEY, teacherApi } from './teacher/auth.js';
 import { initDashboard, loadDash } from './teacher/dashboard.js';
@@ -29,7 +31,7 @@ import { initVirtual, restoreVirtual } from './teacher/virtual.js';
 /* =========================================================
    6. 시작
    ========================================================= */
-mountInterviewers(); initChat(); initTabs(); initSyncBeacon(); initStuPwDialog(); initDashboard(); initLive(); initVirtual();
+mountInterviewers(); initChat(); initTabs(); initSyncBeacon(); initStuPwDialog(); initGuide(()=>openGuide({ teacher: ADMIN.on && !AUTH.virtual, who: AUTH.student&&!AUTH.virtual&&AUTH.student.sid ? AUTH.student.sid+'|'+AUTH.student.name : '' })); initDashboard(); initLive(); initVirtual();
 initTicket(); initTicketToggle(); initBank(); initSchoolFilters(); renderBank(); renderSchoolTab(); renderGuide();
 document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{ renderGuide(); updateTicketSum(); }));
 
@@ -77,6 +79,7 @@ $('#homeLink').onclick=e=>{ e.preventDefault(); location.href=location.pathname;
     greet('');
     if(ADMIN.on) hideGate(); else showGate();
   }
+  if(!ADMIN.on) maybeFirstVisitGuide();               // 이 브라우저로 처음 왔으면 사용 안내부터
   renderLiveEnv();
 })();
 window.__app={S,API,ADMIN,AUTH,LIVE,LOGS:()=>LOGS,groundImproved,SCHOOLS,setSchool,setDept,setAdmin,TRACKS};   // 테스트·디버깅용

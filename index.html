@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
 <title>면접 대기실 · 서울 특성화고 면접 연습</title>
 <meta name="description" content="2027학년도 서울 특성화고 특별전형 면접을 AI 면접관과 연습해요.">
 <meta name="theme-color" content="#1B2559">
@@ -18,6 +18,7 @@
   </h1>
   <button class="api-pill admin-only" id="apiPill" type="button" data-state="nokey" aria-live="polite" title="API 상태" hidden><span class="dot" aria-hidden="true"></span><span class="pill-k">AI 연결</span><span class="pill-label">키 미설정</span></button>
   <div class="dday" id="dday" aria-live="polite"></div>
+  <button class="help-btn" id="helpBtn" type="button" aria-haspopup="dialog" title="사용 안내 다시 보기"><span class="q" aria-hidden="true">?</span><span class="help-t">사용 안내</span></button>
 </header>
 
 <div class="vbar" id="virtualBar" hidden role="status">
@@ -99,6 +100,7 @@
       <div class="dock" id="dock">
       <div class="chips" id="chips"></div>
       <div class="rec-note" id="recNote" hidden role="status"></div>
+      <div class="dock-q" id="dockQ" hidden><b>질문</b><span id="dockQText"></span></div>
       <div class="composer">
         <label class="sr" for="answer">답변 입력</label>
         <textarea id="answer" rows="2" enterkeyhint="enter" placeholder="면접관에게 말하듯 답변을 적어 보세요. (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
@@ -110,7 +112,7 @@
         <span class="meta-right"><span><span id="charCount">0</span>자 <span class="timer" id="timer"></span></span><button class="reset-btn" id="resetBtn" type="button">대화 초기화</button></span>
       </div>
       </div>
-      <div style="height:14px"></div>
+      <div class="dock-spacer" style="height:14px"></div>
     </div>
 
     <!-- 실전 면접: 면접관 음성(TTS) + 카메라 녹화 + 받아쓰기(STT) + 바로 채점 -->
@@ -368,6 +370,15 @@
   </form>
 </dialog>
 
+<!-- 사용 안내: 처음 들어올 때·로그인할 때 열리고, 머리글 '사용 안내'로 다시 볼 수 있어요 (src/ui/guide.js) -->
+<dialog class="guide-dlg" id="guideDlg" aria-labelledby="guideTitle">
+  <div class="g-top"><span class="g-count" id="guideCount"></span><button class="g-x" id="guideClose" type="button" aria-label="안내 닫기">✕</button></div>
+  <div class="g-step" id="guideStep" aria-live="polite"></div>
+  <div class="g-dots" id="guideDots"></div>
+  <label class="g-off" id="guideOffRow" hidden><input type="checkbox" id="guideOff"> 다음부터 로그인할 때 열지 않기</label>
+  <div class="g-actions"><button class="btn ghost" id="guidePrev" type="button">이전</button><button class="btn" id="guideNext" type="button">다음</button></div>
+</dialog>
+
 <!-- 입실 확인: 학번·이름·비밀번호로 들어와요 -->
 <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
   <div class="gate-card">
@@ -388,7 +399,7 @@
     </form>
     <div class="gate-foot">
       <span>비밀번호를 잊었다면 선생님께 초기화를 부탁하세요.</span>
-      <span style="display:flex;gap:14px"><button class="linkish" type="button" id="gateGuest" hidden>저장 없이 둘러보기</button><button class="linkish" type="button" id="gateTeacher">교사 로그인</button></span>
+      <span style="display:flex;gap:14px"><button class="linkish" type="button" id="gateGuest" hidden>저장 없이 둘러보기</button><button class="linkish" type="button" id="gateHelp">사용 안내</button><button class="linkish" type="button" id="gateTeacher">교사 로그인</button></span>
     </div>
   </div>
 </div>
