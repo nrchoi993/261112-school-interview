@@ -1,4 +1,4 @@
-/* 실전 면접: 면접관 그림(SVG)과 입 모양 움직임 */
+/* 실전 면접: 면접관 그림(SVG) 또는 사실적인 사진·영상, 말할 때의 움직임 */
 import { $ } from '../lib/dom.js';
 
 /* =========================================================
@@ -64,15 +64,58 @@ export function ivSVG(kind){
     </g>
   </svg>`;
 }
+/* ---------- 사실적인 면접관 사진·영상 (선택) ----------
+   public/interviewers/ 폴더에 아래 이름으로 파일을 넣으면 그림 대신 사진·영상이 나와요.
+   파일이 없으면 위의 그림(SVG)을 그대로 써요.
+     female.jpg, male.jpg                  정지 사진 (이 파일이 있어야 사진 모드가 켜져요. .png, .webp도 돼요)
+     female-talk.mp4, male-talk.mp4        말하는 동안 반복 재생할 짧은 영상 (선택. .webm도 돼요)
+     female-idle.mp4, male-idle.mp4        듣는 동안 반복 재생할 짧은 영상 (선택. 눈 깜박임·숨쉬기)
+   영상이 없으면 사진에 빛 테두리와 미세한 움직임으로 '말하는 중'을 보여 줘요. */
+export const PHOTO_DIR='/interviewers/';
+const PHOTO={ female:null, male:null };   // {box, img, talk, idle}
+const firstOk=async(list, probe)=>{ for(const src of list){ if(await probe(src)) return src; } return null; };
+const probeImage=src=>new Promise(res=>{ const i=new Image(); i.onload=()=>res(true); i.onerror=()=>res(false); i.src=src; });
+const probeVideo=src=>new Promise(res=>{
+  const v=document.createElement('video'); let done=false; const fin=ok=>{ if(!done){ done=true; v.removeAttribute('src'); v.load(); res(ok); } };
+  if(!v.canPlayType) return res(false);
+  v.muted=true; v.preload='metadata'; v.onloadedmetadata=()=>fin(true); v.onerror=()=>fin(false); v.src=src; setTimeout(()=>fin(false),5000);
+});
+function makeVideo(src, cls){
+  const v=document.createElement('video');
+  Object.assign(v,{ src, muted:true, loop:true, playsInline:true, preload:'auto' }); v.setAttribute('muted',''); v.setAttribute('playsinline','');
+  v.className=cls; v.setAttribute('aria-hidden','true');
+  return v;
+}
+async function mountPhoto(voice, key, fig){
+  const img=await firstOk(['jpg','png','webp'].map(e=>`${PHOTO_DIR}${key}.${e}`), probeImage);
+  if(!img) return;
+  const [talk, idle]=await Promise.all([
+    firstOk(['mp4','webm'].map(e=>`${PHOTO_DIR}${key}-talk.${e}`), probeVideo),
+    firstOk(['mp4','webm'].map(e=>`${PHOTO_DIR}${key}-idle.${e}`), probeVideo)
+  ]);
+  const box=document.createElement('div'); box.className='iv-photo';
+  const im=document.createElement('img'); im.src=img; im.alt=fig.querySelector('figcaption')?.textContent||''; im.decoding='async';
+  box.appendChild(im);
+  const p={ box, img:im, talk:null, idle:null };
+  if(idle){ p.idle=makeVideo(idle,'v-idle on'); box.appendChild(p.idle); p.idle.play().catch(()=>{}); }
+  if(talk){ p.talk=makeVideo(talk,'v-talk'); box.appendChild(p.talk); }
+  fig.querySelector('svg')?.remove();
+  fig.insertBefore(box, fig.firstChild.nextSibling);           // 말하는 중 표시(.talk) 다음에 넣어요
+  fig.classList.add('photo', idle?'has-idle':'no-idle');
+  PHOTO[voice]=p;
+}
 export function mountInterviewers(){
-  $('#ivF').insertAdjacentHTML('afterbegin', ivSVG('f'));
+  $('#ivF').insertAdjacentHTML('afterbegin', ivSVG('f'));      // 먼저 그림을 보여 주고
   $('#ivM').insertAdjacentHTML('afterbegin', ivSVG('m'));
+  mountPhoto('female','female',$('#ivF'));                     // 사진 파일이 있으면 사진으로 바꿔요
+  mountPhoto('male','male',$('#ivM'));
 }
 export const IV_EL={ female:$('#ivF'), male:$('#ivM') };
 export const IV_NAME={ female:'면접위원 A', male:'면접위원 B' };
 export function setMouth(voice, level){
   const fig=IV_EL[voice]; if(!fig) return;
   const l=Math.max(0,Math.min(1,level));
+  if(PHOTO[voice]){ PHOTO[voice].box.style.setProperty('--lvl', l.toFixed(3)); return; }   // 사진: 소리 크기만큼 빛·움직임
   fig.querySelector('.mo').setAttribute('ry', (0.01+l*7.5).toFixed(2));
   fig.querySelector('.mo').setAttribute('rx', (8+l*2.5).toFixed(2));
   fig.querySelector('.teeth').setAttribute('ry', (l>0.25?Math.min(2.2,l*3):0).toFixed(2));
@@ -80,5 +123,12 @@ export function setMouth(voice, level){
   fig.querySelector('.iv-head').style.transform = `translateY(${(l*1.6).toFixed(2)}px) rotate(${(Math.sin(performance.now()/420)*l*1.2).toFixed(2)}deg)`;
 }
 export function setSpeaking(voice){
-  Object.entries(IV_EL).forEach(([k,el])=>{ el.classList.toggle('speaking',k===voice); if(k!==voice) setMouth(k,0); });
+  Object.entries(IV_EL).forEach(([k,el])=>{
+    const on=k===voice;
+    el.classList.toggle('speaking',on);
+    if(!on) setMouth(k,0);
+    const p=PHOTO[k]; if(!p||!p.talk) return;
+    if(on){ p.talk.currentTime=0; p.talk.play().catch(()=>{}); p.talk.classList.add('on'); }
+    else{ p.talk.classList.remove('on'); setTimeout(()=>{ if(!p.talk.classList.contains('on')) p.talk.pause(); },200); }
+  });
 }

@@ -8,7 +8,7 @@ import { renderMyRecords } from '../records/records.js';
 import { DEFAULT_PROFILE, S, schoolName } from '../state.js';
 import { ADMIN, postJSON } from '../teacher/auth.js';
 import { renderBank, renderGuide, renderSchoolTab } from '../ui/tabs.js';
-import { syncTicketUI } from '../ui/ticket.js';
+import { setTicketOpen, syncTicketUI } from '../ui/ticket.js';
 
 /* =========================================================
    7. 학생 로그인(입실 확인)·기록 저장
@@ -120,11 +120,11 @@ export async function submitGate(ev){
     applyLogin(r,false);
   }finally{ btn.disabled=false; }
 }
-export function applyLogin(r, created){
+export function applyLogin(r, created, opts){
   const st=r.state;
   AUTH.student={ token:r.token||AUTH.student&&AUTH.student.token, sid:st.sid, name:st.name, temp:st.temp };
   AUTH.guest=false;
-  try{ localStorage.setItem(STU_KEY, AUTH.student.token); }catch(e){}
+  if(!(opts&&opts.virtual)) try{ localStorage.setItem(STU_KEY, AUTH.student.token); }catch(e){}   // 가상 학생은 이 기기 자동 로그인에 남기지 않아요
   // 저장된 정보 불러오기
   const p=st.profile||{}; delete p.schoolName;
   S.profile={...DEFAULT_PROFILE, ...(created?{}:p)};
@@ -133,7 +133,7 @@ export function applyLogin(r, created){
   S.convo=st.convo||[];
   LOGS.splice(0,LOGS.length,...(r.logs||[]));
   S.history=LOGS.filter(e=>e.type==='answer').map(e=>({id:e.qid,q:e.q,total:e.total,crit:e.crit.map(c=>({name:c.name,score:c.score}))}));
-  syncTicketUI(); updateStats(); renderBank(); renderSchoolTab(); renderGuide();
+  syncTicketUI(); setTicketOpen(!S.profile.dept); updateStats(); renderBank(); renderSchoolTab(); renderGuide();
   $('#whoBar').hidden=false; $('#whoName').textContent=`${st.sid} ${st.name}`;
   $('#ticketNo').textContent=st.sid;
   setSync('ok');
@@ -143,6 +143,7 @@ export function applyLogin(r, created){
   if(st.temp) openStuPw(true);
 }
 export function onSessionLost(){
+  if(AUTH.virtual){ try{ sessionStorage.removeItem('hsVirtualToken'); }catch(e){} location.href=location.pathname; return; }
   AUTH.student=null; try{ localStorage.removeItem(STU_KEY); }catch(e){}
   $('#whoBar').hidden=true;
   if(!ADMIN.on) showGate('로그인이 끝났어요(비밀번호가 초기화되었을 수 있어요). 다시 로그인해 주세요.');

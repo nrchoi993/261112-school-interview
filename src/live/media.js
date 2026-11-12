@@ -2,31 +2,61 @@
 import { API, sessionToken } from '../ai/api.js';
 import { $ } from '../lib/dom.js';
 import { LIVE } from './state.js';
+import { setAudioMode } from './voice.js';
 
-/* ---------- 카메라·마이크 ---------- */
-export async function openMedia(){
+/* ---------- 카메라·마이크 ----------
+   카메라는 면접 내내 켜 두지만, 마이크는 학생이 답하는 동안에만 켜요.
+   휴대폰은 마이크가 켜져 있으면 소리를 '통화'로 내보내서(수화기·통화 볼륨) 면접관 목소리가 안 들리기 때문이에요.
+   echoCancellation(에코 제거)도 끄면 안드로이드가 통화 모드로 바뀌지 않아요. 답하는 동안에는 소리를 틀지 않으니 괜찮아요. */
+const MIC={echoCancellation:false,noiseSuppression:true,autoGainControl:true};
+const gum=c=>navigator.mediaDevices.getUserMedia(c);
+export async function openCamera(){
   const wantCam=$('#lvCam').value==='on';
-  const audio={echoCancellation:true,noiseSuppression:true,autoGainControl:true};
-  let stream=null, note='';
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) note='이 브라우저는 카메라·마이크를 쓸 수 없어요.';
-  else{
-    try{ stream=await navigator.mediaDevices.getUserMedia({audio, video:wantCam?{width:{ideal:640},height:{ideal:480},facingMode:'user'}:false}); }
-    catch(e){
-      if(wantCam){ try{ stream=await navigator.mediaDevices.getUserMedia({audio}); note='카메라를 쓸 수 없어 소리만 녹음해요.'; }catch(e2){ stream=null; } }
-      if(!stream) note = e && e.name==='NotAllowedError' ? '마이크 사용을 허락하지 않았어요. 주소창의 자물쇠 아이콘에서 마이크를 허용할 수 있어요.' : '마이크를 찾지 못했어요.';
-    }
+  let note='';
+  LIVE.cam=null;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) return '이 브라우저는 카메라·마이크를 쓸 수 없어요.';
+  if(wantCam){
+    try{ LIVE.cam=await gum({video:{width:{ideal:640},height:{ideal:480},facingMode:'user'}}); }
+    catch(e){ note='카메라를 쓸 수 없어 소리만 녹음해요.'; }
   }
-  LIVE.stream=stream;
   const v=$('#camVideo');
-  if(stream && stream.getVideoTracks().length){ v.srcObject=stream; v.hidden=false; $('#camOff').hidden=true; try{ await v.play(); }catch(e){} }
-  else{ v.hidden=true; $('#camOff').hidden=false; $('#camOff').innerHTML = stream ? '🎙️ 소리만 녹음 중' : '마이크 없음<br>글로 답해요'; }
-  if(stream && LIVE.ctx){
-    const srcNode=LIVE.ctx.createMediaStreamSource(stream);
-    LIVE.micAn=LIVE.ctx.createAnalyser(); LIVE.micAn.fftSize=1024; srcNode.connect(LIVE.micAn);
-    LIVE.micBuf=new Float32Array(LIVE.micAn.fftSize);
-    meterLoop();
-  }
+  if(LIVE.cam){ v.srcObject=LIVE.cam; v.hidden=false; $('#camOff').hidden=true; try{ await v.play(); }catch(e){} }
+  else{ v.hidden=true; $('#camOff').hidden=false; $('#camOff').innerHTML='🎙️<br>소리만 녹음'; }
   return note;
+}
+/* 시작할 때 마이크 권한만 미리 받아 두고 바로 꺼요 */
+export async function primeMic(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ LIVE.micOk=false; return '이 브라우저는 마이크를 쓸 수 없어 글로 답해요.'; }
+  setAudioMode('play-and-record');
+  try{ const s=await gum({audio:MIC}); s.getTracks().forEach(t=>t.stop()); LIVE.micOk=true; return ''; }
+  catch(e){
+    LIVE.micOk=false;
+    $('#camOff').innerHTML='마이크 없음<br>글로 답해요';
+    return e && e.name==='NotAllowedError' ? '마이크 사용을 허락하지 않아 글로 답해요. 주소창의 자물쇠(또는 aA) 메뉴에서 마이크를 허용할 수 있어요.' : '마이크를 찾지 못해 글로 답해요.';
+  }finally{ LIVE.micClosedAt=performance.now(); setAudioMode('playback'); }
+}
+export async function openMic(){
+  if(!LIVE.micOk) return false;
+  setAudioMode('play-and-record');
+  try{ LIVE.mic=await gum({audio:MIC}); }catch(e){ LIVE.mic=null; setAudioMode('playback'); return false; }
+  if(LIVE.ctx){
+    try{
+      if(LIVE.ctx.state==='suspended') await LIVE.ctx.resume();
+      LIVE.micSrc=LIVE.ctx.createMediaStreamSource(LIVE.mic);
+      LIVE.micAn=LIVE.ctx.createAnalyser(); LIVE.micAn.fftSize=1024; LIVE.micSrc.connect(LIVE.micAn);
+      LIVE.micBuf=new Float32Array(LIVE.micAn.fftSize);
+      meterLoop();
+    }catch(e){ LIVE.micAn=null; }
+  }
+  return true;
+}
+export function closeMic(){
+  cancelAnimationFrame(LIVE.meterRaf);
+  try{ LIVE.micSrc&&LIVE.micSrc.disconnect(); }catch(e){}
+  LIVE.micAn=null; LIVE.micSrc=null;
+  if(LIVE.mic){ LIVE.mic.getTracks().forEach(t=>t.stop()); LIVE.mic=null; LIVE.micClosedAt=performance.now(); }
+  $('#micLevel').style.width='0';
+  setAudioMode('playback');
 }
 export function meterLoop(){
   cancelAnimationFrame(LIVE.meterRaf);
@@ -48,24 +78,26 @@ export function meterLoop(){
   step();
 }
 export function closeMedia(){
-  cancelAnimationFrame(LIVE.meterRaf); LIVE.micAn=null;
-  if(LIVE.stream) LIVE.stream.getTracks().forEach(t=>t.stop());
-  LIVE.stream=null; $('#camVideo').srcObject=null; $('#camVideo').hidden=true;
-  $('#camOff').hidden=false; $('#camOff').innerHTML='내 모습<br>(면접을 시작하면 켜져요)'; $('#micLevel').style.width='0';
+  closeMic();
+  if(LIVE.cam) LIVE.cam.getTracks().forEach(t=>t.stop());
+  LIVE.cam=null; $('#camVideo').srcObject=null; $('#camVideo').hidden=true;
+  $('#camOff').hidden=false; $('#camOff').innerHTML='내 모습<br>(시작하면 켜져요)';
 }
 export const pickMime=list=>window.MediaRecorder&&MediaRecorder.isTypeSupported ? (list.find(t=>MediaRecorder.isTypeSupported(t))||'') : '';
 export function startRecording(){
   LIVE.vChunks=[]; LIVE.aChunks=[]; LIVE.vRec=LIVE.aRec=null;
-  const st=LIVE.stream; if(!st||!window.MediaRecorder) return false;
+  if(!LIVE.mic||!window.MediaRecorder) return false;
+  const vt=LIVE.cam?LIVE.cam.getVideoTracks():[], at0=LIVE.mic.getAudioTracks();
+  const st=new MediaStream([...vt, ...at0]);
   try{
-    if(st.getVideoTracks().length){
+    if(vt.length){
       const mt=pickMime(['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4']);
       LIVE.vRec=new MediaRecorder(st, {...(mt?{mimeType:mt}:{}), videoBitsPerSecond:900000});
       LIVE.vRec.ondataavailable=e=>{ if(e.data&&e.data.size) LIVE.vChunks.push(e.data); };
       LIVE.vRec.start(1000);
     }
     const at=pickMime(['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus']);
-    LIVE.aRec=new MediaRecorder(new MediaStream(st.getAudioTracks()), {...(at?{mimeType:at}:{}), audioBitsPerSecond:48000});
+    LIVE.aRec=new MediaRecorder(new MediaStream(at0), {...(at?{mimeType:at}:{}), audioBitsPerSecond:48000});
     LIVE.aRec.ondataavailable=e=>{ if(e.data&&e.data.size) LIVE.aChunks.push(e.data); };
     LIVE.aRec.start(1000);
     return true;

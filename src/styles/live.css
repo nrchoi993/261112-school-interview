@@ -15,6 +15,19 @@
 .iv.m .iv-eye{animation-duration:6.4s;animation-delay:1.3s}
 @keyframes ivBlink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
 .iv .iv-head{transform-box:view-box;transform-origin:50% 60%;transition:transform .12s}
+/* 사실적인 사진·영상 모드 (public/interviewers/에 파일이 있을 때) */
+.iv.photo{transition:filter .25s;filter:brightness(.82) saturate(.92)}
+.iv.photo.speaking{filter:none}
+.iv-photo{--lvl:0;position:relative;width:100%;max-width:236px;aspect-ratio:4/5;border-radius:14px 14px 0 0;overflow:hidden;background:#1B2147;box-shadow:0 0 0 2px rgba(255,255,255,.08);transition:box-shadow .15s}
+.iv-photo img,.iv-photo video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 22%;transform-origin:50% 35%}
+.iv-photo img{transform:scale(calc(1 + var(--lvl)*.012)) translateY(calc(var(--lvl)*-1px));transition:transform .08s}
+.iv.photo.no-idle:not(.speaking) .iv-photo img{animation:breathe 5.5s ease-in-out infinite}
+.iv.photo.m.no-idle:not(.speaking) .iv-photo img{animation-duration:6.3s;animation-delay:1.1s}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.007) translateY(-.6px)}}
+.iv-photo video{opacity:0;transition:opacity .18s}
+.iv-photo video.on{opacity:1}
+.iv.photo.speaking .iv-photo{box-shadow:0 0 0 3px var(--yellow),0 0 calc(12px + var(--lvl)*28px) rgba(255,200,61,.5)}
+.iv.photo .talk{z-index:2}
 .talk{position:absolute;top:6px;right:10%;display:flex;gap:3px;align-items:flex-end;height:18px;opacity:0;transition:opacity .2s;background:var(--yellow);border-radius:999px;padding:4px 8px}
 .talk i{width:3px;background:var(--ink);border-radius:2px;height:5px;display:block}
 .iv.speaking .talk{opacity:1}
@@ -73,3 +86,14 @@
 .dl-grid .bad b{color:var(--coral)}
 .ans-card .sheet{border:0;border-radius:0;min-width:0}
 .pending{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;padding:14px}
+
+/* 질문 다시 듣기 · 3·2·1 준비 신호 */
+.repeat-row{position:relative;z-index:3;margin:0 -18px;background:#141B42;padding:0 12px 12px;text-align:center}
+.repeat-btn{border:1.5px solid rgba(255,255,255,.55);background:transparent;color:#fff;border-radius:999px;padding:6px 14px;font-weight:700;font-size:13.5px}
+.repeat-btn small{font-weight:500;opacity:.75}
+.repeat-btn:hover{background:rgba(255,255,255,.12)}
+.countdown{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;pointer-events:none;background:rgba(15,20,50,.45)}
+.countdown span{font-family:"Black Han Sans",sans-serif;font-size:96px;line-height:1;color:var(--yellow);text-shadow:0 4px 0 var(--ink),0 0 30px rgba(0,0,0,.4);animation:cdPop .6s ease-out both}
+.countdown em{font-style:normal;font-weight:800;color:#fff;font-size:15px;letter-spacing:.5px;background:rgba(0,0,0,.35);border-radius:999px;padding:4px 12px}
+@keyframes cdPop{0%{transform:scale(1.8);opacity:0}40%{transform:scale(.95);opacity:1}100%{transform:scale(1)}}
+@media (max-width:760px){ .repeat-row{margin:0 -8px} .countdown span{font-size:72px} }

@@ -3,7 +3,7 @@ import { bot, idleChips } from '../chat/chat.js';
 import { deptTrack, ivPoints, SCHOOLS } from '../data/schools.js';
 import { TRACKS } from '../data/tracks.js';
 import { $, esc } from '../lib/dom.js';
-import { curSchool, S, saveProfile } from '../state.js';
+import { curSchool, S, saveProfile, schoolName } from '../state.js';
 import { renderBank, renderSchoolTab, switchTab } from './tabs.js';
 
 /* =========================================================
@@ -58,7 +58,22 @@ export function refreshDeptList(){
   if(!inp.hidden) inp.value=S.profile.dept;
 }
 
+/* 휴대폰: 수험표를 한 줄 요약으로 접고 펼쳐요 */
+export const isPhone=()=>matchMedia('(max-width:760px)').matches;
+export function updateTicketSum(){
+  const p=S.profile, sch=schoolName();
+  $('#ticketSum').textContent = (sch||p.dept) ? [sch||'학교 미선택', p.dept||'학과 미선택', p.type+'전형'].join(' · ') : '지원 학교·학과를 골라 주세요';
+}
+export function setTicketOpen(open){
+  const t=$('#ticket'); t.classList.toggle('open',open);
+  $('#ticketToggle').setAttribute('aria-expanded',String(open));
+}
+export function initTicketToggle(){
+  $('#ticketToggle').onclick=()=>setTicketOpen(!$('#ticket').classList.contains('open'));
+  setTicketOpen(!S.profile.dept);                       // 학과를 아직 안 골랐으면 펼쳐 둬요
+}
 export function renderTrackBadge(){
+  updateTicketSum();
   const b=$('#trackBadge'), t=TRACKS[S.profile.track];
   $('#trackSel').value=S.profile.track;
   if(!S.profile.dept){ b.className='track-badge empty'; b.innerHTML='<span>학과를 고르면 계열이 자동으로 정해져요</span>'; return; }

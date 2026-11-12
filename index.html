@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>면접 대기실 데모</title>
+<title>면접 대기실 · 서울 특성화고 면접 연습</title>
+<meta name="description" content="2027학년도 서울 특성화고 특별전형 면접을 AI 면접관과 연습해요.">
+<meta name="theme-color" content="#1B2559">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
@@ -11,16 +13,24 @@
 <body>
 
 <header class="top">
-  <h1 class="logo"><a href="./" id="homeLink" title="처음 화면으로 새로고침"><span class="logo-main">면접 대기실</span> <span class="demo-chip">데모</span>
+  <h1 class="logo"><a href="./" id="homeLink" title="처음 화면으로 새로고침"><span class="logo-main">면접 대기실</span>
     <small>서울 특성화고 면접 연습 챗봇 · 2027학년도 신입생 전형 대비</small></a>
   </h1>
   <button class="api-pill admin-only" id="apiPill" type="button" data-state="nokey" aria-live="polite" title="API 상태" hidden><span class="dot" aria-hidden="true"></span><span class="pill-k">AI 연결</span><span class="pill-label">키 미설정</span></button>
   <div class="dday" id="dday" aria-live="polite"></div>
 </header>
 
+<div class="vbar" id="virtualBar" hidden role="status">
+  <span>👀 <b id="vName"></b> (가상 학생)으로 학생 화면을 보는 중이에요. 여기서 한 연습도 대시보드에 기록돼요.</span>
+  <button class="btn sm" id="vExit" type="button">교사 대시보드로 돌아가기</button>
+</div>
+
 <main class="wrap">
   <!-- 수험표 -->
-  <aside class="ticket" aria-label="내 지원 정보">
+  <aside class="ticket" id="ticket" aria-label="내 지원 정보">
+    <button class="ticket-toggle" id="ticketToggle" type="button" aria-expanded="true" aria-controls="ticketMore">
+      <span class="ts-k">수험표</span><span class="ts-v" id="ticketSum">지원 학교·학과를 골라 주세요</span><span class="ts-c" aria-hidden="true"></span>
+    </button>
     <div class="ticket-head">
       <h2>수험표</h2>
       <div class="no">모의면접<br>No. <span id="ticketNo">0001</span></div>
@@ -29,6 +39,7 @@
       <span><b id="whoName"></b> <span class="sync-dot" id="syncDot" data-s="ok">기록 저장됨</span></span>
       <span style="display:flex;gap:6px"><button class="reset-btn" id="myPwBtn" type="button">비밀번호</button><button class="reset-btn" id="logoutBtn" type="button">로그아웃</button></span>
     </div>
+    <div id="ticketMore">
     <div class="ticket-body">
       <div class="field">
         <label for="schoolSel">지원 학교</label>
@@ -66,17 +77,18 @@
       </div>
       <div class="weak" id="stWeak"></div>
     </div>
+    </div>
   </aside>
 
   <!-- 메인 패널 -->
   <section class="panel">
     <div class="tabs" role="tablist">
-      <button role="tab" data-tab="chat" aria-selected="true">모의면접</button>
-      <button role="tab" data-tab="live" aria-selected="false">실전 면접</button>
-      <button role="tab" data-tab="records" aria-selected="false">내 기록</button>
-      <button role="tab" data-tab="bank" aria-selected="false">질문 은행</button>
-      <button role="tab" data-tab="school" aria-selected="false">학교·학과 정보</button>
-      <button role="tab" data-tab="guide" aria-selected="false">전형 일정·면접 팁</button>
+      <button role="tab" data-tab="chat" data-student aria-selected="true">모의면접</button>
+      <button role="tab" data-tab="live" data-student aria-selected="false">실전 면접</button>
+      <button role="tab" data-tab="records" data-student aria-selected="false">내 기록</button>
+      <button role="tab" data-tab="bank" data-student aria-selected="false">질문 은행</button>
+      <button role="tab" data-tab="school" data-student aria-selected="false">학교·학과 정보</button>
+      <button role="tab" data-tab="guide" data-student aria-selected="false">전형 일정·면접 팁</button>
       <button role="tab" data-tab="dash" aria-selected="false" class="admin-only" hidden>학생 대시보드</button>
       <button role="tab" data-tab="api" aria-selected="false" class="admin-only" hidden>교사·API</button>
     </div>
@@ -84,16 +96,19 @@
     <!-- 모의면접 -->
     <div class="tab on" id="tab-chat" role="tabpanel">
       <div class="chat" id="chat" aria-live="polite"></div>
+      <div class="dock" id="dock">
       <div class="chips" id="chips"></div>
+      <div class="rec-note" id="recNote" hidden role="status"></div>
       <div class="composer">
         <label class="sr" for="answer">답변 입력</label>
-        <textarea id="answer" rows="2" placeholder="면접관에게 말하듯 답변을 적어 보세요. (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
-        <button class="icon-btn" id="micBtn" type="button" aria-pressed="false" title="말로 답하기" hidden>🎤</button>
+        <textarea id="answer" rows="2" enterkeyhint="enter" placeholder="면접관에게 말하듯 답변을 적어 보세요. (Enter 전송, Shift+Enter 줄바꿈)"></textarea>
+        <button class="icon-btn mic" id="micBtn" type="button" aria-pressed="false" title="말로 답하기" hidden><span class="mic-ico" aria-hidden="true">🎤</span><span class="mic-t">말로 답하기</span></button>
         <button class="send" id="sendBtn" type="button">보내기</button>
       </div>
       <div class="meta-bar">
         <label class="toggle"><input type="checkbox" id="timerOn"> 답변 시간 재기 (1분 30초)</label>
         <span class="meta-right"><span><span id="charCount">0</span>자 <span class="timer" id="timer"></span></span><button class="reset-btn" id="resetBtn" type="button">대화 초기화</button></span>
+      </div>
       </div>
       <div style="height:14px"></div>
     </div>
@@ -109,9 +124,11 @@
           </div>
           <div class="desk"><div class="plates"><span class="plate">면접위원 A</span><span class="plate">면접위원 B</span></div></div>
           <div class="subtitle dim" id="liveSub" aria-live="polite">면접 설정을 확인하고 ‘면접 시작’을 누르세요. 면접관이 질문을 소리 내어 읽어 줘요.</div>
-          <div class="selfcam" id="selfcam"><span class="cam-off" id="camOff">내 모습<br>(면접을 시작하면 켜져요)</span><video id="camVideo" muted playsinline autoplay hidden></video><span class="recb" id="recBadge">REC <span id="recTime">0:00</span></span><span class="meter"><i id="micLevel"></i></span></div>
+          <div class="repeat-row" id="repeatRow" hidden><button class="repeat-btn" id="liveRepeat" type="button">↺ 질문 다시 듣기 <small>(질문마다 한 번)</small></button></div>
+          <div class="countdown" id="countdown" hidden aria-live="assertive"></div>
         </div>
 
+        <div class="selfcam" id="selfcam"><span class="cam-off" id="camOff">내 모습<br>(면접을 시작하면 켜져요)</span><video id="camVideo" muted playsinline autoplay hidden></video><span class="recb" id="recBadge">REC <span id="recTime">0:00</span></span><span class="meter"><i id="micLevel"></i></span></div>
         <div class="live-bar">
           <div class="live-status" id="liveStatus">준비됐어요<small>질문 5개를 실제 면접처럼 말로 답해요. 답변은 녹화·받아쓰기 후 바로 채점돼요.</small></div>
           <span class="big-timer" id="liveTimer" aria-live="off"></span>
@@ -127,8 +144,8 @@
 
 
         <div class="live-res" id="liveRes"></div>
-        <section class="live-setup" id="liveSetup" aria-label="실전 면접 설정">
-          <h4>면접 설정</h4>
+        <details class="live-setup" id="liveSetup" open>
+          <summary><b>면접 설정</b> <span id="lvSum"></span></summary>
           <div class="set-grid">
             <label>질문 수<select id="lvCount"><option value="3">3문항 (약 7분)</option><option value="5" selected>5문항 (약 12분)</option><option value="7">7문항 (약 17분)</option></select></label>
             <label>질문하는 면접관<select id="lvVoice"><option value="alt" selected>여성·남성 번갈아</option><option value="female">여성 면접관만</option><option value="male">남성 면접관만</option></select></label>
@@ -138,7 +155,7 @@
             <label>질문 자막<select id="lvSub"><option value="on" selected>보이기</option><option value="off">숨기기 (듣기만)</option></select></label>
           </div>
           <p class="set-note">녹화 영상은 이 기기에만 남고 서버로 올라가지 않아요(필요하면 저장 버튼으로 내려받으세요). 받아쓰기를 위해 소리만 잠깐 서버로 보내고, 채점 결과와 받아쓴 글은 내 기록에 저장돼요. <span id="liveEnvNote"></span></p>
-        </section>
+        </details>
       </div>
     </div>
 
@@ -156,7 +173,12 @@
       <div class="pane">
         <h3>학생 대시보드</h3>
         <p class="lead">학생별 연습 현황과 대화 기록을 보고, 비밀번호를 잊은 학생의 비밀번호를 초기화할 수 있어요.</p>
+        <section class="vcard" aria-labelledby="vTitle">
+          <div><h4 id="vTitle">학생 화면 체험</h4><p>가상 학생으로 들어가 학생이 보는 모의면접·실전 면접·내 기록을 직접 써 볼 수 있어요. 가상 학생 기록은 아래 통계와 CSV에서 빠져요.</p></div>
+          <div class="vrow"><label class="sr" for="vSel">가상 학생 고르기</label><select id="vSel"></select><button class="btn" id="vGo" type="button">학생 화면으로 보기</button><button class="btn ghost" id="vAdd" type="button">가상 학생 추가</button></div>
+        </section>
         <div class="kpis" id="dashKpis"></div>
+        <section class="help-box" id="dashHelp" aria-label="도움이 필요한 학생"></section>
         <div class="dash-tools">
           <input id="dashQuery" type="search" placeholder="학번·이름·학교·학과 검색" aria-label="학생 검색">
           <button class="btn ghost" id="dashRefresh" type="button">새로 불러오기</button>

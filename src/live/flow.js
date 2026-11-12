@@ -6,9 +6,9 @@ import { ADV } from '../data/questions.js';
 import { analyze, gradeOf } from '../feedback/rules.js';
 import { $, esc, pick } from '../lib/dom.js';
 import { IV_NAME, setSpeaking } from './interviewers.js';
-import { closeMedia, openMedia, serverSTT, startBrowserSR, startRecording, stopBrowserSR, stopRec, transcribe } from './media.js';
+import { closeMedia, closeMic, openCamera, openMic, primeMic, serverSTT, startBrowserSR, startRecording, stopBrowserSR, stopRec, transcribe } from './media.js';
 import { countFillers, LIVE, liveButtons, liveStatus, liveSub, voiceFor } from './state.js';
-import { beep, ensureAudio, fetchTTS, speak, stopSpeaking } from './voice.js';
+import { beep, fetchTTS, speak, stopSpeaking, unlockAudio } from './voice.js';
 import { deliveryHTML, fillerMark, fmtSec } from '../records/records.js';
 import { fill, S, schoolName } from '../state.js';
 import { logEntry, saveRemote } from '../student/auth.js';
@@ -18,7 +18,8 @@ import { ADMIN } from '../teacher/auth.js';
 export async function liveStart(){
   if(!['idle','done'].includes(LIVE.state)) return;
   LIVE.abort=false; LIVE.ttsFails=0;
-  await ensureAudio();                                   // 버튼을 누른 순간에 소리 재생을 허락받아요(자동 재생 제한)
+  $('.live').classList.add('running');
+  unlockAudio();                                         // 버튼을 누른 순간에 소리 재생을 열어 둬요(휴대폰 자동 재생 제한)
   LIVE.urls.forEach(u=>URL.revokeObjectURL(u)); LIVE.urls=[];
   LIVE.limit=+$('#lvLimit').value; LIVE.main=+$('#lvCount').value;
   LIVE.qs=pickSet(LIVE.main).map(q=>({...q})); LIVE.idx=0; LIVE.results=[];
@@ -26,7 +27,7 @@ export async function liveStart(){
   LIVE.state='intro';
   liveButtons(null,{label:'그만하기',fn:()=>liveStop(false)});
   liveStatus('카메라와 마이크를 켜고 있어요…','브라우저가 권한을 물으면 ‘허용’을 눌러 주세요.');
-  const note=await openMedia();
+  const note=[await openCamera(), await primeMic()].filter(Boolean).join(' ');
   if(LIVE.abort) return;
   if(note) liveStatus('면접을 시작해요', note); else liveStatus('면접을 시작해요','면접관의 인사를 들어 보세요.');
   const first=voiceFor(0);
@@ -53,12 +54,30 @@ export async function askLive(){
   if(LIVE.abort) return;
   beginAnswer();
 }
-export function beginAnswer(){
-  LIVE.state='answering'; beep();
-  LIVE.t0=performance.now(); LIVE.voiced=0; LIVE.firstAt=null; LIVE.lastT=0;
+/* 3·2·1 준비 신호: 녹화가 갑자기 시작되어 놀라지 않게 해요 */
+async function countdown(){
+  const box=$('#countdown'); box.hidden=false;
+  for(const n of [3,2,1]){
+    if(LIVE.abort) break;
+    box.innerHTML=`<span>${n}</span><em>곧 답변 녹화가 시작돼요</em>`;
+    await new Promise(r=>setTimeout(r,650));
+  }
+  box.hidden=true; box.innerHTML='';
+}
+export async function beginAnswer(){
+  LIVE.state='starting';
   const q=LIVE.cur;
   liveSub(fill(q.q), q.voice);
-  const recording = startRecording();
+  liveStatus('답변 준비','숫자가 끝나고 ‘삐’ 소리가 나면 말하기 시작하세요.');
+  liveButtons({label:'준비 중…',disabled:true,fn:()=>{}},{label:'그만하기',fn:()=>liveStop(false)});
+  await countdown();
+  if(LIVE.abort) return;
+  await beep();                                          // 삐 소리가 끝난 뒤에 마이크를 켜요(휴대폰 통화 모드 방지)
+  const micOn = await openMic();
+  if(LIVE.abort){ closeMic(); return; }
+  LIVE.state='answering';
+  LIVE.t0=performance.now(); LIVE.voiced=0; LIVE.firstAt=null; LIVE.lastT=0;
+  const recording = micOn && startRecording();
   if(!serverSTT()) startBrowserSR();
   LIVE.typed = !recording;
   if(!recording){ $('#liveType').hidden=false; $('#liveTypeIn').value=''; $('#liveTypeIn').focus(); }
@@ -71,19 +90,39 @@ export function beginAnswer(){
     const el=(performance.now()-LIVE.t0)/1000, left=Math.max(0,LIVE.limit-el);
     tm.textContent=fmtSec(Math.ceil(left)); tm.classList.toggle('warn',left<=10);
     $('#recTime').textContent=fmtSec(el);
+    // 질문 다시 듣기: 답을 시작하기 전 5초 동안, 질문마다 한 번만
+    $('#repeatRow').hidden = !(el<5 && !LIVE.firstAt && !q.repeated && LIVE.state==='answering');
     if(left<=0) finishAnswer(true);
   },200);
+}
+/* 질문 다시 듣기: 지금 녹화를 버리고 같은 면접관이 질문을 다시 읽은 뒤 처음부터 답해요 */
+export async function repeatQuestion(){
+  const q=LIVE.cur;
+  if(LIVE.state!=='answering'||!q||q.repeated) return;
+  q.repeated=true; LIVE.state='repeating';
+  $('#repeatRow').hidden=true;
+  clearInterval(LIVE.tick); $('#liveTimer').textContent=''; $('#liveTimer').classList.remove('warn'); $('#selfcam').classList.remove('rec');
+  for(const rec of [LIVE.vRec, LIVE.aRec]){ if(rec){ rec.ondataavailable=null; try{ if(rec.state!=='inactive') rec.stop(); }catch(e){} } }
+  LIVE.vRec=LIVE.aRec=null; LIVE.vChunks=[]; LIVE.aChunks=[];
+  if(LIVE.sr) await stopBrowserSR();
+  closeMic(); $('#liveType').hidden=true;
+  liveStatus(`${IV_NAME[q.voice]}가 질문을 다시 읽어 줘요`,'다시 듣기는 질문마다 한 번만 할 수 있어요.');
+  liveButtons({label:'질문 듣는 중…',disabled:true,fn:()=>{}},{label:'그만하기',fn:()=>liveStop(false)});
+  await speak('네, 다시 한 번 말씀드리겠습니다. '+fill(q.q), q.voice);
+  if(LIVE.abort) return;
+  beginAnswer();
 }
 export async function finishAnswer(timeout){
   if(LIVE.state!=='answering') return;
   LIVE.state='processing';
   clearInterval(LIVE.tick); $('#liveTimer').textContent=''; $('#liveTimer').classList.remove('warn');
-  $('#selfcam').classList.remove('rec');
+  $('#selfcam').classList.remove('rec'); $('#repeatRow').hidden=true;
   const sec=Math.min(LIVE.limit,(performance.now()-LIVE.t0)/1000);
   const latency=LIVE.firstAt?(LIVE.firstAt-LIVE.t0)/1000:null;
   const voicedRatio=sec?Math.min(1,LIVE.voiced/1000/sec):0;
   const [video,audio]=await Promise.all([stopRec(LIVE.vRec,LIVE.vChunks),stopRec(LIVE.aRec,LIVE.aChunks)]);
   const srText=LIVE.sr?await stopBrowserSR():'';
+  closeMic();                                            // 답이 끝나면 바로 마이크를 꺼서 다음 질문 소리가 미디어로 나오게 해요
   const typed=LIVE.typed?$('#liveTypeIn').value.trim():null;
   $('#liveType').hidden=true;
   const q=LIVE.cur;
@@ -200,7 +239,7 @@ export function renderCard(r){
       ${r.aiErr?`<p class="time-note">${esc(r.aiErr)}</p>`:''}
       ${sheetHTML(r.res, r.q, r.over, r.ai)}
       ${r.ai&&r.ai.follow_up&&!r.q.isFollow&&LIVE.state!=='done'&&$('#lvShow').value==='each'?`<p style="margin:10px 0 0"><button class="btn ghost" type="button" data-follow>꼬리질문 받기: “${esc(r.ai.follow_up)}”</button></p>`:''}`;
-  el.innerHTML=`<div class="ans-head"><span class="tag ${r.q.isFollow?'exp':'hot'}">${r.q.isFollow?'꼬리질문':'질문 '+(LIVE.qs.slice(0,LIVE.qs.indexOf(r.q)+1).filter(x=>!x.isFollow).length||r.i+1)}</span><span class="q">${esc(fill(r.q.q))}</span><span>${esc(IV_NAME[r.voice]||'')}</span></div>
+  el.innerHTML=`<div class="ans-head"><span class="tag ${r.q.isFollow?'exp':'hot'}">${r.q.isFollow?'꼬리질문':'질문 '+(LIVE.qs.slice(0,LIVE.qs.indexOf(r.q)+1).filter(x=>!x.isFollow).length||r.i+1)}</span><span class="q">${esc(fill(r.q.q))}</span>${r.q.repeated?'<span class="tag exp">질문 다시 들음</span>':''}<span>${esc(IV_NAME[r.voice]||'')}</span></div>
     <div class="ans-body"><div class="ans-main">${main}</div>
       <div class="ans-side">${media}${dl}${r.delivery?deliveryHTML(r.delivery):`<div class="dl-grid"><div><b>${fmtSec(r.sec)}</b><span>답변 시간 / ${fmtSec(LIVE.limit)}</span></div><div><b>${r.latency==null?'-':r.latency.toFixed(1)+'초'}</b><span>첫 마디까지</span></div></div>`}</div></div>`;
   const sb=el.querySelector('[data-score]');
@@ -226,14 +265,14 @@ export function liveStop(silent){
   stopSpeaking(); clearInterval(LIVE.tick); $('#liveTimer').textContent='';
   $('#selfcam').classList.remove('rec');
   if(LIVE.state==='answering'){ try{ LIVE.vRec&&LIVE.vRec.stop(); }catch(e){} try{ LIVE.aRec&&LIVE.aRec.stop(); }catch(e){} stopBrowserSR(); }
-  $('#liveType').hidden=true;
+  $('#liveType').hidden=true; $('#repeatRow').hidden=true; $('#countdown').hidden=true;
   LIVE.state='ending';
-  if(silent){ closeMedia(); LIVE.state='done'; $('#liveRes').hidden=false; return; }
+  if(silent){ $('.live').classList.remove('running'); closeMedia(); LIVE.state='done'; $('#liveRes').hidden=false; return; }
   liveStatus('면접을 그만뒀어요','지금까지 답한 내용만 정리해요.');
   Promise.all(LIVE.results.map(r=>r.promise)).then(finishLive);
 }
 export function finishLive(){
-  closeMedia(); setSpeaking(null);
+  closeMedia(); setSpeaking(null); $('.live').classList.remove('running');
   LIVE.state='done'; $('#liveRes').hidden=false;
   const done=LIVE.results.filter(r=>r.res);
   $('#liveSetup').hidden=false;
@@ -260,7 +299,22 @@ export function finishLive(){
   logEntry({type:'live', count:done.length, avg, items:done.map(r=>({q:fill(r.q.q), total:r.res.total}))});
   box.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
+/* 면접 설정 요약(접었을 때 보이는 한 줄) */
+function setupSummary(){
+  const t=id=>{ const el=$(id); return el.options[el.selectedIndex].text.replace(/\s*\(.*\)/,''); };
+  $('#lvSum').textContent=`· ${t('#lvCount')} · ${t('#lvLimit')} · ${t('#lvVoice')}`;
+}
+/* 휴대폰에서는 '내 모습' 상자를 아래 조작 막대 안으로 옮겨요(PC에서는 무대 오른쪽 위) */
+function placeSelfcam(){
+  const cam=$('#selfcam'), bar=$('.live-bar'), phone=matchMedia('(max-width:760px)').matches;
+  if(phone && cam.parentNode!==bar) bar.prepend(cam);
+  if(!phone && cam.parentNode===bar) bar.before(cam);
+}
 export function initLive(){
+  $('#liveRepeat').onclick=repeatQuestion;
+  placeSelfcam(); matchMedia('(max-width:760px)').addEventListener('change',placeSelfcam);
+  setupSummary(); ['#lvCount','#lvLimit','#lvVoice'].forEach(id=>$(id).addEventListener('change',setupSummary));
+  if(matchMedia('(max-width:760px)').matches) $('#liveSetup').open=false;   // 휴대폰에서는 설정을 접어 둬요
   $('#liveMain').onclick=liveStart;
   $('#liveTypeBtn').onclick=()=>finishAnswer(false);
   $('#lvSub').onchange=()=>{ if(LIVE.cur&&['asking','answering'].includes(LIVE.state)) liveSub(fill(LIVE.cur.q), LIVE.cur.voice); };

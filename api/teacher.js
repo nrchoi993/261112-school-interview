@@ -8,14 +8,30 @@
      detail    {token, id}          → 학생 정보 + 활동 기록 전체
      resetpw   {token, id}          → 4자리 임시 비밀번호 발급(학생은 다음 로그인 때 새 비밀번호를 정해요)
      delete    {token, id}          → 학생 기록 삭제
+     as-student {token, id}         → 가상 학생으로 학생 화면 보기(가상 학생만 가능, 실제 학생으로는 들어갈 수 없어요)
+     add-virtual {token}            → 가상 학생 하나 더 만들기
+   가상 학생: 교사가 학생 화면을 직접 써 보는 연습용 학생이에요. 처음 대시보드를 열 때 1명(가상학생1)이 자동으로 생겨요.
+   통계(등록 학생 수·평균)와 CSV에서는 빠져요.
    교사 비밀번호
      - 처음에는 Vercel 환경 변수 TEACHER_PASSWORD, 없으면 00000000이에요.
      - 00000000으로 들어오면 새 비밀번호를 정하기 전에는 대시보드를 볼 수 없어요.
      - 바꾼 비밀번호는 서버 저장소에 해시로 저장돼서 어느 기기에서나 같아요. */
-import { handler, send, fail, readJson, hashPw, checkPw, newToken, tempPin, teacherFromToken, TCH_SESSION_SEC } from '../server/util.js';
+import { handler, send, fail, readJson, hashPw, checkPw, newToken, tempPin, teacherFromToken, TCH_SESSION_SEC, STU_SESSION_SEC } from '../server/util.js';
 import { db, storeMode } from '../server/store.js';
 import { aiConf } from '../server/openai.js';
-import { emptySummary } from '../server/records.js';
+import { emptySummary, publicState } from '../server/records.js';
+
+/* 가상 학생 만들기: 학번 T01, T02 … 이름 가상학생1, 가상학생2 … (비밀번호는 아무도 모르는 값) */
+async function createVirtual(all){
+  const used = new Set(Object.values(all).filter(v => v && v.virtual).map(v => v.sid));
+  let n = 1; while(used.has('T' + String(n).padStart(2, '0'))) n++;
+  const sid = 'T' + String(n).padStart(2, '0'), name = '가상학생' + n, id = `${sid}|${name}`, now = new Date().toISOString();
+  const rec = { id, sid, name, virtual: true, ...hashPw(newToken()), temp: false, createdAt: now, lastAt: now,
+    profile: null, answered: [], convo: [], sessions: [] };
+  await db.setJSON('stu:' + id, rec);
+  await db.hsetJSON('students', id, emptySummary(rec));
+  return { id, ...emptySummary(rec) };
+}
 
 const DEFAULT_PW = '00000000';
 const pwOk = pw => typeof pw === 'string' && pw.length >= 6 && pw.length <= 40 && !/\s/.test(pw);
@@ -68,8 +84,14 @@ export default handler(async (req, res) => {
 
   if(t.mustChange) return fail(res, 403, 'mustchange', '기본 비밀번호를 먼저 바꿔 주세요.');
 
+  if(action === 'add-virtual'){
+    const v = await createVirtual(await db.hgetallJSON('students'));
+    return send(res, 200, { ok: true, student: v });
+  }
+
   if(action === 'list'){
     const all = await db.hgetallJSON('students');
+    if(!Object.values(all).some(v => v && v.virtual)){ const v = await createVirtual(all); all[v.id] = v; }   // 가상 학생 1명 기본 생성
     const students = Object.entries(all).filter(([, v]) => v).map(([id, v]) => ({ id, ...v }));
     const st = await stored();
     const c = aiConf();
@@ -89,7 +111,20 @@ export default handler(async (req, res) => {
     return send(res, 200, { ok: true, student: { ...pub, sessionCount: (sessions || []).length }, summary, logs });
   }
 
+  if(action === 'as-student'){
+    if(!rec) return fail(res, 404, 'nostudent', '학생 정보를 찾을 수 없어요.');
+    if(!rec.virtual) return fail(res, 403, 'notvirtual', '실제 학생 계정으로는 들어갈 수 없어요. 가상 학생을 고르세요.');
+    const token = newToken();
+    rec.sessions = [...(rec.sessions || []), token].slice(-10);
+    rec.lastAt = new Date().toISOString();
+    await db.set('sess:' + token, id, STU_SESSION_SEC);
+    await db.setJSON('stu:' + id, rec);
+    const logs = await db.lrangeJSON('log:' + id, -400, -1);
+    return send(res, 200, { ok: true, token, state: publicState(rec), logs });
+  }
+
   if(action === 'resetpw'){
+    if(rec && rec.virtual) return fail(res, 400, 'virtual', '가상 학생은 비밀번호가 없어요.');
     if(!rec) return fail(res, 404, 'nostudent', '학생 정보를 찾을 수 없어요.');
     const pin = tempPin();
     for(const s of rec.sessions || []) await db.del('sess:' + s);   // 다른 기기의 로그인도 모두 끝내요

@@ -2,7 +2,7 @@
 import { API } from '../ai/api.js';
 import { bot } from '../chat/chat.js';
 import { $ } from '../lib/dom.js';
-import { AUTH, hideGate, showGate } from '../student/auth.js';
+import { AUTH, hideGate } from '../student/auth.js';
 import { DASH, loadDash } from './dashboard.js';
 import { switchTab } from '../ui/tabs.js';
 
@@ -30,12 +30,13 @@ export const teacherApi = (action, extra) => postJSON('/api/teacher', { action, 
 export function setAdmin(on){
   ADMIN.on=on;
   document.body.classList.toggle('is-admin',on);
+  document.body.classList.toggle('teacher-view', on && !AUTH.virtual);   // 교사 화면: 대시보드만 보여요
   document.querySelectorAll('.admin-only').forEach(el=>{ el.hidden=!on; });
   if(!on){
     if(TEACHER.token) teacherApi('logout');
-    TEACHER.token=''; try{ sessionStorage.removeItem(TEACHER_KEY); }catch(e){}
-    if($('#tab-api').classList.contains('on')||$('#tab-dash').classList.contains('on')) switchTab('chat');
-    if(!AUTH.student && !AUTH.guest) showGate();
+    TEACHER.token=''; try{ sessionStorage.removeItem(TEACHER_KEY); sessionStorage.removeItem('hsVirtualToken'); }catch(e){}
+    location.href=location.pathname;                                        // 처음 화면으로 깔끔하게 돌아가요
+    return;
   }
   const btn=$('#adminBtn'); btn.textContent = on ? '교사 모드 종료' : '교사'; btn.setAttribute('aria-pressed',String(on));
   renderPwInfo();
@@ -57,7 +58,9 @@ export function openAdminDialog(){
 export function closeAdminDialog(){ const dlg=$('#adminDlg'); if(dlg.open){ if(dlg.close) dlg.close(); else dlg.removeAttribute('open'); } }
 
 export async function enterTeacher(){
-  closeAdminDialog(); hideGate(); setAdmin(true); switchTab('dash');
+  closeAdminDialog(); hideGate();
+  if(AUTH.student && !AUTH.virtual){ AUTH.student=null; $('#whoBar').hidden=true; }   // 이 기기의 학생 화면은 잠시 닫아요(교사 모드를 끝내면 다시 열려요)
+  setAdmin(true); switchTab('dash');
   try{ sessionStorage.setItem(TEACHER_KEY, TEACHER.token); }catch(e){}
   loadDash();
 }

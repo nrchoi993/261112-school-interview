@@ -29,6 +29,8 @@ export async function scoreWithAI(q, local, input, extra, signal, opts){
   const said=[...input].reverse().find(m=>m.role==='user');
   const g=groundImproved(ai.improved_answer||'', said?said.content:'', q);
   ai.improved_answer=g.text; ai.grounding=g.flags;
+  // 고칠 점의 '→ 예:' 문장도 같은 방식으로 점검해요
+  ai.fix=ai.fix.map(t=>{ const i=t.indexOf('→'); if(i<0) return t; return t.slice(0,i)+groundImproved(t.slice(i), said?said.content:'', q).text; });
   return { res, ai };
 }
 

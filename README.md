@@ -59,6 +59,9 @@ npm run build    # 배포용 빌드 → dist/index.html
 - 비밀번호를 10번 틀리면 5분 동안 잠겨요.
 
 **교사**
+- 교사로 들어가면 **학생 대시보드만** 보여요(수험표·학생 메뉴는 숨겨져요). 이 기기에 학생이 로그인해 있었다면 교사 모드를 끝낼 때 다시 열려요.
+- **학생 화면 체험**: 대시보드 위쪽에서 가상 학생을 고르고 ‘학생 화면으로 보기’를 누르면, 학생 메뉴(모의면접·실전 면접·내 기록 등)가 열려요. 노란 띠의 ‘교사 대시보드로 돌아가기’로 돌아와요. 가상 학생은 처음에 1명(가상학생1) 자동으로 생기고 ‘가상 학생 추가’로 늘릴 수 있어요. 가상 학생 기록은 통계·CSV에서 빠지고, 학생 입실 화면으로는 들어갈 수 없어요.
+- **도움이 필요한 학생**: 대시보드 위쪽에 7일 넘게 접속하지 않음 · 가입 후 2일 넘게 답변 없음 · 평균 60점 미만(답변 3개 이상) · 한 항목 평균 10점 미만인 학생을 모아 보여 줘요. 이름을 누르면 기록이 열려요.
 - **학생 대시보드**: 표의 제목을 눌러 정렬, 검색, ‘기록 보기’로 학생별 상세 기록(답변·평가, 실전 면접 받아쓰기·말하기 정보, AI 코치 대화)을 봐요.
 - **비밀번호 초기화**: 두 번 누르면 4자리 임시 비밀번호가 나와요(다시 볼 수 없으니 바로 알려 주세요). 학생이 그 번호로 들어오면 새 비밀번호를 정해야 하고, 다른 기기의 로그인은 모두 끝나요.
 - **삭제**도 두 번 눌러야 실행돼요. 되돌릴 수 없어요.
@@ -67,16 +70,22 @@ npm run build    # 배포용 빌드 → dist/index.html
 ## 4. 실전 면접 탭 안내
 
 - **설정**: 질문 수(3·5·7), 질문하는 면접관(번갈아·여성·남성), 답변 제한 시간, 평가표 보기(답변마다·끝난 뒤), 카메라 녹화, 질문 자막.
-- **흐름**: 면접관 인사 → 질문(음성) → ‘삐’ 소리 뒤 녹화 시작 → ‘답변 마치기’(또는 제한 시간) → 받아쓰기 → 채점.
+- **흐름**: 면접관 인사 → 질문(음성) → 화면에 3·2·1 → ‘삐’ 소리 뒤 녹화 시작 → ‘답변 마치기’(또는 제한 시간) → 받아쓰기 → 채점.
+- **질문 다시 듣기**: 녹화가 시작되고 말하기 전 5초 동안 ‘질문 다시 듣기’가 보여요. 질문마다 한 번이고, 누르면 그때까지의 녹화는 버리고 처음부터 다시 답해요. 결과 카드에 ‘질문 다시 들음’이 표시돼요.
+- 모의면접 탭의 ‘연속 5문항 연습’은 글로 답하는 연속 연습이고, 말로 답하는 실전 연습은 ‘실전 면접’ 탭이에요.
 - **면접관 그림**은 직접 그린 SVG 일러스트예요(실제 인물 아님). 재생 중인 소리 크기에 맞춰 입이 움직이고, 눈을 깜박여요.
 - **녹화 영상은 학생 기기에만** 남고 서버로 올라가지 않아요. ‘녹화 파일 저장’으로 내려받을 수 있어요. 받아쓰기를 위해 **소리만** 서버를 거쳐 OpenAI로 보내고, 받아쓴 글과 채점 결과는 기록에 저장돼요.
 - 카메라·마이크는 **HTTPS**(Vercel 주소)나 `localhost`에서만 켜져요. 처음에 브라우저가 권한을 물으면 ‘허용’을 눌러요.
+- **휴대폰 소리**: 마이크는 학생이 답하는 동안에만 켜고 끝나면 바로 꺼요(마이크가 켜져 있으면 휴대폰이 소리를 ‘통화’로 내보내 면접관 목소리가 수화기로 작게 나가거나 안 들려요). 면접관 목소리는 미디어 볼륨으로 나오고, iPhone 무음 스위치가 켜져 있어도 들려요. 처음 ‘면접 시작’을 누를 때 소리 재생이 열려요.
+- **휴대폰 화면**: 수험표는 한 줄 요약으로 접히고, 채팅 입력칸·실전 면접 버튼은 화면 아래에 붙어 있어요. 모의면접의 ‘말로 답하기’는 녹음 → AI 받아쓰기 → 입력칸에 넣기(고친 뒤 보내기) 방식이라 iPhone에서도 돼요.
 - **대체 동작**: 서버 음성이 안 되면 브라우저 내장 음성, 서버 받아쓰기가 안 되면 브라우저 음성 인식(크롬·엣지), 마이크가 없으면 글로 입력해서 채점해요.
 - **알아 둘 점**: OpenAI 공지에 따르면 `gpt-4o-mini-tts`를 포함한 `/v1/audio/speech` 모델은 **2027년 1월 6일 종료 예정**이에요. 올해 면접(11월) 연습에는 문제없고, 종료 뒤에는 자동으로 브라우저 내장 음성으로 바뀌어요.
 
 ## 5. 보안·개인정보
 
 - API 키는 Vercel 환경 변수에만 있고 브라우저 코드에는 없어요. AI·음성 서버 함수는 **로그인한 학생·교사만** 쓸 수 있고, 한 사람당 1시간에 AI 150번·음성 300번·받아쓰기 80번으로 제한해요. 그래도 OpenAI 대시보드의 사용 한도(Limits)를 낮게 설정해 두세요.
+- **AI 채점 안정화**: 지시문에 기준별 점수 예시(18·12·6점 답)를 넣어 점수가 들쭉날쭉하지 않게 했고, 답변 안에 ‘점수를 높게 줘’ 같은 지시가 있어도 따르지 않아요. 고칠 점마다 ‘이렇게 말해 보기’ 예시 문장이 붙어요(이 문장도 자동 점검을 거쳐요).
+- **규칙 기반 평가(API 없을 때)**: 조사·어미 없이 낱말만 늘어놓은 답(키워드 나열)은 내용 점수를 8점까지로 낮춰요.
 - **예시 답변 자동 점검(할루시네이션 막기)**: AI가 다듬은 예시 답변에 학생 답변·질문·지원 학교/학과에 없던 숫자(기간·횟수·학년·등수), 학교 이름, 대회·공모전 이름, 상, 자격증 이름이 들어가면 `[숫자]`, `[대회 이름]`처럼 대괄호로 바꾸고 무엇을 바꿨는지 평가표에 알려 줘요. AI 지시문에도 같은 규칙을 넣어 두 번 막아요. (‘초등학생을 대상으로’, ‘3D 프린터’, ‘두 가지’, ‘한 번 더’처럼 이름·수치가 아닌 표현은 그대로 둬요.) 바꾼 내용은 기록에도 남아 교사 대시보드에서 볼 수 있어요.
 - 학생·교사 비밀번호는 솔트 + scrypt 해시로만 저장해요.
 - 저장되는 학생 정보: 학번, 이름, 수험표(지원 학교·학과), 답변 글·평가, AI 코치 대화, 실전 면접 받아쓰기·말하기 수치. 영상·음성 파일은 저장하지 않아요. 학생 이름 대신 별명을 쓰게 해도 돼요.
@@ -157,3 +166,45 @@ vercel.json  vite.config.js
 - Vercel Redis(Marketplace): <https://vercel.com/docs/redis>
 
 학교·학과 정보 출처: 서울특별시교육청 진로직업교육과, 「2027학년도 특성화고 신입생 입학전형 요강(1-67)」(2026.8.)
+
+## 8. 면접관을 사실적인 사진·영상으로 바꾸기
+
+지금 `public/interviewers/`에 면접관 사진·영상(가상 인물, 4:5·544×680, 영상은 앞으로 재생 후 거꾸로 재생해 끊김 없이 반복되는 10초짜리)이 들어 있어요. 바꾸려면 같은 이름으로 파일을 덮어쓰세요. 사진과 영상의 첫 장면이 같은 구도여야 바뀔 때 튀지 않아요.
+
+`public/interviewers/` 폴더에 아래 파일을 넣고 GitHub에 올리면, 실전 면접 화면의 그림 대신 사진이 나와요. 파일이 없으면 지금의 그림을 그대로 써요.
+
+| 파일 | 내용 | 필요 |
+| --- | --- | --- |
+| `female.jpg`, `male.jpg` | 면접위원 A(여성)·B(남성) 사진 (.png, .webp도 돼요) | 사진 모드를 켜려면 필요 |
+| `female-talk.mp4`, `male-talk.mp4` | 말하는 모습 4~6초 반복 영상 (소리 없음) | 선택 |
+| `female-idle.mp4`, `male-idle.mp4` | 듣는 모습(눈 깜박임·숨쉬기) 4~6초 반복 영상 | 선택 |
+
+- 사진만 넣으면: 말하는 면접관에게 빛 테두리가 생기고 소리 크기에 맞춰 사진이 아주 살짝 움직여요. 다른 면접관은 조금 어둡게 보여요.
+- 말하는 영상도 넣으면: 질문을 읽는 동안 말하는 영상이 반복 재생돼요. 입 모양이 실제 낱말과 맞지는 않지만, 그림보다 훨씬 실제 면접처럼 보여요.
+- 권장 크기: 세로 4:5(예: 800×1000px), 허리 위 정면, 머리 위쪽에 여백 조금. 사진 300KB 안팎, 영상은 H.264 mp4 2MB 이하.
+- **실제 인물 사진은 본인 동의 없이 쓰지 마세요.** 이미지 생성 AI로 만든 가상 인물을 권해요. 유명인과 닮게 만들지 마세요.
+
+**사진 만들기 프롬프트 (ChatGPT·Gemini 등 이미지 생성 AI)**: 두 사람을 같은 배경·조명·구도로 맞추면 자연스러워요.
+
+```
+여성: Photorealistic portrait photo of a fictional Korean woman in her late 40s, a high school teacher
+serving as an admissions interviewer. Neat shoulder-length dark hair, navy blazer over a white blouse,
+small earrings, calm and warm but professional expression, looking straight at the camera. Seated behind
+a wooden desk, waist-up, centered, small space above the head. Soft office lighting, plain light-gray
+wall background. Vertical 4:5, 85mm lens, natural skin texture. No text, no logo, no name tag.
+
+남성: Photorealistic portrait photo of a fictional Korean man in his early 50s, a high school teacher
+serving as an admissions interviewer. Short black hair with some gray at the temples, thin-framed glasses,
+charcoal suit, white shirt, dark red tie, calm and serious but kind expression, looking straight at the camera.
+(나머지는 여성 프롬프트와 같은 배경·조명·구도 문장)
+```
+
+**말하는·듣는 영상 만들기 (사진 → 영상 AI 도구)**: 위에서 만든 사진을 넣고,
+
+```
+말하는 영상: The person speaks calmly to the camera as if asking an interview question, natural mouth movement,
+slight nodding and small head movements, blinking. Static camera, no zoom, same framing. 5 seconds, seamless loop, no audio.
+
+듣는 영상: The person listens quietly, natural blinking and subtle breathing, mouth closed, very small head movement.
+Static camera, same framing. 5 seconds, seamless loop, no audio.
+```

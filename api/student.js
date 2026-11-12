@@ -17,7 +17,7 @@ const ip = req => String(req.headers['x-forwarded-for'] || req.socket?.remoteAdd
 
 async function openSession(rec){
   const token = newToken();
-  rec.sessions = [...(rec.sessions || []), token].slice(-10);
+  rec.sessions = [...(rec.sessions || []), token].slice(-10);   // (교사 대시보드의 가상 학생 세션도 같은 방식이에요)
   rec.lastAt = new Date().toISOString();
   await db.set('sess:' + token, rec.id, STU_SESSION_SEC);
   await db.setJSON('stu:' + rec.id, rec);
@@ -52,6 +52,7 @@ export default handler(async (req, res) => {
 
     if(action === 'login'){
       if(!rec) return send(res, 200, { ok: false, code: 'new', message: '처음 들어오는 학생이에요.' });
+      if(rec.virtual) return fail(res, 403, 'virtual', '가상 학생은 교사 대시보드의 ‘학생 화면으로 보기’로만 들어올 수 있어요.');
       if(!checkPw(b.pw, rec)){
         const n = await db.incr('rl:' + lockKey, LOCK_SEC);
         return fail(res, 401, 'badpw', `비밀번호가 맞지 않아요. (${n}/${MAX_FAILS})`, { left: Math.max(0, MAX_FAILS - n) });

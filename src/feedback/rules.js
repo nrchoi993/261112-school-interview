@@ -3,7 +3,7 @@ import { TRACKS } from '../data/tracks.js';
 import { S, schoolName } from '../state.js';
 
 /* =========================================================
-   3. 피드백 엔진 (규칙 기반 데모)
+   3. 피드백 엔진 (규칙 기반: AI를 쓸 수 없을 때)
    ========================================================= */
 export const SLANG = ['ㅋ','ㅎㅎ','ㅠ','그냥','근데','진짜','완전','개꿀','존나','ㄹㅇ','뭐랄까','암튼','걍','짱','대박','솔까'];
 export const HEDGE = ['잘 모르겠','아마도','글쎄','그런 것 같'];
@@ -19,6 +19,20 @@ export function countUnique(text, re){
 }
 export function splitSentences(t){
   return t.split(/(?<=[.!?。])\s+|\n+/).map(s=>s.trim()).filter(Boolean);
+}
+
+/* 키워드만 늘어놓은 답 찾기: 조사·어미 없이 낱말만 이어진 부분이 길거나, 대부분의 어절에 조사·어미가 없으면 '나열'로 봐요 */
+const JOSA_END=/(은|는|이|가|을|를|에|에서|에게|께|의|로|으로|와|과|랑|도|만|서|고|며|면|다|요|까|죠|게|지|니다|든|던|한|된|인|운|른|할|여|해|워|아|어|부터|까지|동안|때|히|려|후|씩|처럼|보다|라고|라는|이라|니까|는데|지만|도록|려고)$/;
+export function keywordStuffing(raw){
+  const words=raw.replace(/[.,!?…~"'“”‘’()]/g,' ').split(/\s+/).filter(Boolean);
+  if(words.length<8) return { stuffed:false };
+  let run=0, maxRun=0, marked=0;
+  for(const w of words){
+    if(JOSA_END.test(w)){ marked++; run=0; }
+    else{ run++; maxRun=Math.max(maxRun,run); }
+  }
+  const ratio=marked/words.length;
+  return { stuffed: maxRun>=7 || ratio<0.35, maxRun, ratio };
 }
 
 export function analyze(text, q){
@@ -90,6 +104,13 @@ export function analyze(text, q){
   if(n>450){E-=5; eNotes.push('답변이 길어요. 핵심만 남겨 1분 안에 말할 수 있게 줄여 보세요.');}
   E=Math.max(2,Math.min(20,E));
   crit.push({key:'E',name:'말투·분량',score:E,good:'면접에 맞는 바른 말투와 적당한 분량이에요.',bad:eNotes.join(' ')||'말투를 조금 더 다듬어 보세요.'});
+
+  // 키워드 나열 감점: 낱말만 늘어놓으면 내용 점수(적합성·구체성·연계·구성)를 8점까지로 낮춰요
+  const ks=keywordStuffing(raw);
+  if(ks.stuffed){
+    for(const c of crit){ if(c.key!=='E' && c.score>8){ c.score=8; c.bad='낱말을 늘어놓기보다 ‘저는 ~해서 ~했습니다’처럼 완전한 문장으로 이어서 말해 보세요. '+c.bad; } }
+    const e=crit.find(c=>c.key==='E'); e.score=Math.min(e.score,10); e.bad='키워드만 나열하면 면접관이 내용을 알 수 없어요. 문장으로 이어서 말해 보세요. '+(e.bad||'');
+  }
 
   // 개인정보 경고
   const warns=[];

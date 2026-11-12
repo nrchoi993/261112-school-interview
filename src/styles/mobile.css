@@ -1,0 +1,126 @@
+/* ---------- 공통: PC에서는 숨기고 휴대폰에서만 쓰는 것 ---------- */
+.ticket-toggle{display:none}
+.mic-t{display:none}
+.rec-note{margin:8px 22px 0;padding:8px 12px;border-radius:10px;background:var(--coral-soft);color:#8A2125;font-size:13px;font-weight:700}
+.rec-note[data-k="busy"]{background:var(--soft);color:var(--ink-2)}
+.rec-note[data-k="done"]{background:var(--mint-soft);color:#0E6B57}
+.icon-btn.mic[aria-pressed="true"]{border-color:var(--coral);background:var(--coral);color:#fff}
+
+/* 실전 면접: '내 모습' 상자는 PC에서 무대 오른쪽 위에 겹쳐 보여요 */
+.live{position:relative}
+.selfcam{top:32px;right:36px}
+.live-setup summary{cursor:pointer;font-size:15px;list-style:none}
+.live-setup summary::-webkit-details-marker{display:none}
+.live-setup summary::before{content:"▸ ";color:var(--muted)}
+.live-setup[open] summary::before{content:"▾ "}
+.live-setup[open] summary{margin-bottom:10px}
+.live-setup summary span{font-weight:500;font-size:13px;color:var(--muted)}
+
+/* ---------- 휴대폰 (가로 760px 이하) ---------- */
+@media (max-width:760px){
+  input,select,textarea{font-size:16px!important}          /* iPhone: 16px보다 작으면 입력할 때 화면이 확대돼요 */
+  .top{padding:12px 14px 6px;gap:8px;flex-wrap:nowrap}
+  .logo{font-size:22px}
+  .logo small{display:none}
+  .demo-chip{font-size:10px;padding:1px 6px;top:-2px;margin-left:4px}
+  .dday{margin-left:auto;border-radius:10px;flex:none}
+  .dday b{font-size:17px;padding:4px 9px}
+  .dday span{font-size:11px;padding:4px 9px}
+  .dday span em{display:none}
+  body{overflow-x:clip}                                   /* 가로로 넘치는 일 없게(스크롤 영역을 만들지 않아 sticky도 그대로) */
+  .wrap{padding:6px 10px 20px;gap:10px;grid-template-columns:minmax(0,1fr)}
+  .wrap>*,.panel,.tab,.dock,.chips{min-width:0}
+
+  /* 수험표: 한 줄 요약으로 접혀요(눌러서 펼치기) */
+  .ticket{border-radius:14px}
+  .ticket-toggle{display:flex;align-items:center;gap:10px;width:100%;border:0;background:var(--ink);color:#fff;padding:11px 14px;text-align:left}
+  .ticket-toggle .ts-k{font-family:"Black Han Sans",sans-serif;font-size:16px;letter-spacing:1px;flex:none}
+  .ticket-toggle .ts-v{flex:1;min-width:0;font-size:13px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ticket-toggle .ts-c::after{content:"펼치기 ▾";font-size:12px;opacity:.8}
+  .ticket.open .ticket-toggle .ts-c::after{content:"접기 ▴"}
+  .ticket-head{display:none}
+  .ticket:not(.open) #ticketMore{display:none}
+  .who{padding:6px 12px}
+  .ticket-body{padding:12px 14px 4px}
+  .stats{padding:4px 14px 12px}
+
+  /* 패널·탭: 탭은 화면 위에 붙어 있어요 */
+  .panel{min-height:0;overflow:visible;border-radius:14px}
+  .tabs{position:sticky;top:0;z-index:20;padding:6px 6px 0;border-radius:14px 14px 0 0;scrollbar-width:none}
+  body.as-virtual .tabs{top:44px}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{padding:9px 12px;font-size:14px}
+  .pane{padding:16px 14px;max-height:none;overflow:visible}
+
+  /* 모의면접 채팅: 페이지 전체가 스크롤되고, 입력 영역은 화면 아래에 붙어 있어요 */
+  .chat{max-height:none;min-height:42vh;padding:14px 10px;gap:12px;overflow:visible}
+  .msg{max-width:100%;scroll-margin-top:56px;scroll-margin-bottom:200px}
+  .msg.bot{width:100%}
+  .msg.bot .bubble{flex:1;min-width:0}
+  .msg .ava{display:none}
+  .bubble{padding:10px 12px;max-width:100%;border-radius:4px 14px 14px 14px}
+  .msg.me .bubble{max-width:88%}
+  .qcard,.sheet{min-width:0;width:100%}
+  .qcard .qq{font-size:16.5px}
+  .sheet-top{padding:12px}
+  .stamp{width:72px;height:72px}
+  .stamp b{font-size:24px}
+  .crit,.fb-sec{padding-left:12px;padding-right:12px}
+  details.sample{padding:0 12px 12px}
+  .dock{position:sticky;bottom:0;z-index:15;background:var(--card);border-top:1px solid var(--line);box-shadow:0 -8px 18px -12px rgba(27,37,89,.35);padding-bottom:env(safe-area-inset-bottom);border-radius:0 0 14px 14px}
+  .chips{flex-wrap:nowrap;overflow-x:auto;padding:8px 10px 2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;flex:none;padding:7px 13px}
+  .rec-note{margin:8px 10px 0}
+  .composer{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 10px 4px}
+  .composer textarea{grid-column:1/-1;min-height:50px;max-height:34vh;padding:10px 12px}
+  .composer .mic{width:auto;height:48px;padding:0 12px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:15px;font-weight:700}
+  .composer .mic[hidden]{display:none}
+  .composer .mic[hidden] ~ .send{grid-column:1/-1}
+  .mic-t{display:inline}
+  .send{height:48px;width:100%}
+  .meta-bar{padding:2px 10px 8px}
+  #tab-chat > div[style]{display:none}
+
+  /* 실전 면접 */
+  .live{padding:10px;max-height:none;overflow:visible;gap:12px}
+  .stage{padding:10px 8px 0;min-height:0;border-radius:14px}
+  .stage-top{padding-right:0;font-size:11px;margin-bottom:4px}
+  .stage-top span:first-child{display:none}
+  .panelists{gap:8px}
+  .iv svg{max-width:170px}
+  .talk{top:4px;right:6px}
+  .desk{margin:-4px -8px 0;height:42px}
+  .desk .plates{padding-top:9px}
+  .plate{font-size:11.5px;padding:2px 8px}
+  .subtitle{margin:0 -8px;font-size:15.5px;padding:10px 12px 12px;min-height:54px}
+  /* 내 모습: 휴대폰에서는 아래 조작 막대 왼쪽에 들어가요(면접 중에만) */
+  .live-bar .selfcam{grid-area:cam;position:relative;top:auto;right:auto;width:70px;aspect-ratio:3/4;align-self:stretch;border-width:2px;font-size:10px}
+  .live:not(.running) .selfcam{display:none}
+  .live.running .live-bar{grid-template-columns:auto 1fr auto;grid-template-areas:"cam st tm" "cam mn sd"}
+  .live-bar .selfcam .recb{font-size:9.5px;padding:0 4px;left:3px;top:3px}
+  .live-bar{position:sticky;bottom:0;margin:0 -10px -10px;padding:10px 12px calc(12px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line);box-shadow:0 -8px 18px -12px rgba(27,37,89,.35);
+    display:grid;grid-template-columns:1fr auto;grid-template-areas:"st tm" "mn sd";gap:8px 10px;border-radius:0 0 14px 14px}
+  #liveStatus{grid-area:st;min-width:0;font-size:14px}
+  #liveTimer{grid-area:tm;font-size:24px;align-self:center}
+  #liveMain{grid-area:mn;width:100%;padding:14px;font-size:16px}
+  #liveSide{grid-area:sd;padding:14px 14px}
+  .live-bar:has(#liveSide[hidden]) #liveMain{grid-column:1/-1}
+  .live-bar:has(#liveMain[hidden]) #liveSide{grid-column:1/-1}
+  .live-type{flex-direction:column;align-items:stretch}
+  .ans-body{grid-template-columns:1fr}
+  .ans-main{border-right:0;border-bottom:1px solid var(--line)}
+  .ans-head .q{min-width:0;font-size:14.5px}
+  .live-setup{padding:12px}
+  .set-grid{grid-template-columns:1fr 1fr;gap:8px 10px}
+
+  /* 기록·대시보드 */
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .bar-row{grid-template-columns:92px 1fr 36px}
+  .foot{font-size:11px;padding:0 14px 18px}
+}
+@media (hover:none){ .chip:hover{background:#fff;color:var(--ink)} .chip.alt:hover{color:var(--ink-2)} }
+@media (max-width:400px){
+  .set-grid{grid-template-columns:1fr}
+  .dday span{display:none}
+}

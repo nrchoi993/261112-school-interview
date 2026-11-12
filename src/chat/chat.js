@@ -1,4 +1,4 @@
-/* 모의면접 채팅: 질문·답변·평가표·실전 모드(5문항)·인사말 */
+/* 모의면접 채팅: 질문·답변·평가표·연속 5문항 연습·인사말 */
 import { API, renderApiPanel, sessionToken, STORE_LABEL } from '../ai/api.js';
 import { groundNoteHTML, phHTML } from '../ai/grounding.js';
 import { aiChat, aiFeedback } from '../ai/scoring.js';
@@ -12,6 +12,7 @@ import { statsOf } from '../records/records.js';
 import { curSchool, fill, S, schoolName, trackName } from '../state.js';
 import { AUTH, logEntry, LOGS, saveRemote } from '../student/auth.js';
 import { ADMIN } from '../teacher/auth.js';
+import { pickMime, serverSTT, transcribe } from '../live/media.js';
 
 /* 로딩 표시와 중복 전송 방지 */
 export function setBusy(on, label){
@@ -47,7 +48,10 @@ export function addMsg(who, html){
   el.className='msg '+(who==='bot'?'bot':'me');
   el.innerHTML=(who==='bot'?'<div class="ava" aria-hidden="true">면</div>':'')+`<div class="bubble">${html}</div>`;
   chat.appendChild(el);
-  chat.scrollTop=chat.scrollHeight;
+  if(matchMedia('(max-width:760px)').matches){
+    // 휴대폰: 페이지 전체가 스크롤되니 새 메시지가 보이게 화면을 옮겨요(긴 평가표는 윗부분부터)
+    requestAnimationFrame(()=>el.scrollIntoView({block: el.offsetHeight>innerHeight*0.5?'start':'end', behavior:'smooth'}));
+  }else chat.scrollTop=chat.scrollHeight;
   return el;
 }
 export function bot(html){return addMsg('bot',html)}
@@ -63,7 +67,7 @@ export function setChips(list){
 export function idleChips(){
   setChips([
     ['질문 추천받기',()=>askQ(recommend())],
-    ['실전 모드 5문항',startReal],
+    ['연속 5문항 연습',startReal],
     ['유형별 질문 고르기',catChips],
     ['내 학교 정보',showSchoolMsg,true],
     ['전형 일정',showScheduleMsg,true]
@@ -73,7 +77,7 @@ export function catChips(){
   setChips(CATS.map(c=>[c,()=>{const p=pool().filter(q=>q.cat===c); if(p.length) askQ(pick(p)); else bot('<p>이 계열에는 아직 해당 유형 질문이 없어요.</p>');}]).concat([['처음으로',idleChips,true]]));
 }
 export function awaitingChips(){
-  if(S.mode==='real'){ setChips([['잘 모르겠어요 (힌트 보기)',giveHint,true],['실전 모드 그만하기',endReal,true]]); return; }
+  if(S.mode==='real'){ setChips([['잘 모르겠어요 (힌트 보기)',giveHint,true],['연속 연습 그만하기',endReal,true]]); return; }
   setChips([['잘 모르겠어요 (힌트 보기)',giveHint,true],['다른 질문으로',()=>{stopTimer(); askQ(recommend(S.cur.id));},true]]);
 }
 
@@ -170,7 +174,7 @@ export function renderFeedback(res,q,over,ai){
   bot(sheetHTML(res,q,over,ai));
   const followAvail= ai ? !!ai.follow_up : ((q.follow&&q.follow.length)&&!q.isFollow);
   if(S.mode==='real'){
-    if(S.queue.length){ setChips([[`다음 질문 (${6-S.queue.length}/5)`,()=>askQ(S.queue.shift())],['실전 모드 그만하기',endReal,true]]); }
+    if(S.queue.length){ setChips([[`다음 질문 (${6-S.queue.length}/5)`,()=>askQ(S.queue.shift())],['연속 연습 그만하기',endReal,true]]); }
     else { setChips([['결과 보기',endReal]]); }
     return;
   }
@@ -195,7 +199,9 @@ export function sheetHTML(res,q,over,ai){
   }).join('');
   const fr=FRAMES[q.cat]||FRAMES['인성'];
   const goodHTML = ai ? ai.good.map(t=>esc(t)) : goods.map(c=>esc(c.good));
-  const fixHTML = ai ? ai.fix.map(t=>esc(t)) : fixes.map(c=>`<b>${c.name}</b>: ${esc(c.bad)}`);
+  // AI 고칠 점: '…해 보세요. → 예: “…”'에서 예시 문장은 따로 한 줄로 보여 줘요
+  const fixLine=t=>{ const i=t.indexOf('→'); return i<0?esc(t):`${esc(t.slice(0,i).trim())}<span class="fix-ex">${phHTML(t.slice(i+1).trim().replace(/^예\s*[:：]\s*/,''))}</span>`; };
+  const fixHTML = ai ? ai.fix.map(fixLine) : fixes.map(c=>`<b>${c.name}</b>: ${esc(c.bad)}`);
   const html=`<div class="sheet">
     <div class="sheet-top">
       <div><h4>면접관 평가표${ai?`<span class="ai-tag solid">AI 평가${ADMIN.on?` · ${esc(API.model)}`:''}</span>`:'<span class="ai-tag">규칙 기반</span>'}</h4><p>${esc(ai?ai.summary:g.msg)}</p><p>${res.n}자${over?' · <b style="color:var(--coral)">답변 시간 초과</b>':''}</p></div>
@@ -220,7 +226,7 @@ export function askFollow(q, aiText){
   askQ(fq);
 }
 
-/* 실전 모드 */
+/* 연속 5문항 연습 (글로 답하는 연속 연습. 말로 하는 실전 연습은 ‘실전 면접’ 탭) */
 
 /* 실제 면접 순서대로 질문 고르기: 자기소개 → 지원동기 → 학업계획·진로 → 전공 → 인성·상황 (+ 추가) */
 export function pickSet(n){
@@ -242,19 +248,19 @@ export function pickSet(n){
 export function startReal(){
   const set=pickSet(5);
   S.mode='real'; S.realRes=[]; S.queue=set.slice(1);
-  bot(`<p><b>실전 모드</b>를 시작할게요. 질문 5개를 차례로 드리고, 질문마다 1분 30초를 재요. 시간이 지나도 답을 보낼 수 있지만 평가표에 표시돼요.</p><p>${esc(schoolName()||'지원 학교')} ${esc(S.profile.dept||trackName())} 지원자로 진행합니다.</p>`);
+  bot(`<p><b>연속 5문항 연습</b>을 시작할게요. 실제 면접 순서대로 질문 5개를 차례로 드리고, 질문마다 1분 30초를 재요. 시간이 지나도 답을 보낼 수 있지만 평가표에 표시돼요. 말로 답하는 연습은 <b>실전 면접</b> 탭에서 할 수 있어요.</p><p>${esc(schoolName()||'지원 학교')} ${esc(S.profile.dept||trackName())} 지원자로 진행합니다.</p>`);
   askQ(set[0]);
 }
 export function endReal(){
   stopTimer();
   const r=S.realRes; S.mode='free'; S.queue=[]; S.awaiting=false;
-  if(!r.length){bot('<p>실전 모드를 마쳤어요. 언제든 다시 시작할 수 있어요.</p>'); idleChips(); return;}
+  if(!r.length){bot('<p>연속 5문항 연습을 마쳤어요. 언제든 다시 시작할 수 있어요.</p>'); idleChips(); return;}
   const avg=Math.round(r.reduce((a,x)=>a+x.total,0)/r.length);
   const per={}; r.forEach(x=>x.crit.forEach(c=>{const k=c.key; per[k]=per[k]||{name:c.name,sum:0}; per[k].sum+=c.score;}));
   const weakest=Object.values(per).sort((a,b)=>a.sum-b.sum)[0];
   const adv=ADV;
   const g=gradeOf(avg);
-  bot(`<div class="sheet"><div class="sheet-top"><div><h4>실전 모드 결과</h4><p>${esc(g.msg)}</p></div>
+  bot(`<div class="sheet"><div class="sheet-top"><div><h4>연속 5문항 연습 결과</h4><p>${esc(g.msg)}</p></div>
     <div class="stamp ${g.cls} anim"><div><b>${avg}</b><span>평균</span></div></div></div>
     <div class="fb-sec"><table class="sum-table">${r.map((x,i)=>`<tr><td>${i+1}. ${esc(x.q)}</td><td>${x.total}점</td></tr>`).join('')}</table></div>
     <div class="fb-sec fb-fix"><h5>가장 보완이 필요한 항목: ${esc(weakest.name)}</h5><ul><li>${esc(adv[weakest.name]||'')}</li></ul></div></div>`);
@@ -264,10 +270,11 @@ export function endReal(){
 /* 대화 의도 */
 export function intent(text){
   if(/일정|언제|원서|날짜/.test(text)) return showScheduleMsg();
-  if(/실전/.test(text)) return startReal();
+  if(/실전 면접|말로 연습/.test(text)){ bot('<p>말로 답하는 연습은 <b>실전 면접</b> 탭에서 할 수 있어요. 면접관이 질문을 읽어 주고, 녹화한 답을 바로 채점해 드려요.</p>'); return; }
+  if(/연속|실전|5문항/.test(text)) return startReal();
   if(/학교|학과|정보|자격증|진로/.test(text)) return showSchoolMsg();
   if(/질문|추천|연습|시작|면접/.test(text)) return askQ(recommend());
-  bot('<p>저는 면접 질문을 드리고 답변에 피드백을 하는 연습 도우미예요. 아래 버튼을 누르거나 “질문 추천해 줘”, “실전 모드”, “전형 일정”, “학교 정보”처럼 입력해 보세요.</p>');
+  bot('<p>저는 면접 질문을 드리고 답변에 피드백을 하는 연습 도우미예요. 아래 버튼을 누르거나 “질문 추천해 줘”, “연속 연습”, “전형 일정”, “학교 정보”처럼 입력해 보세요.</p>');
   idleChips();
 }
 
@@ -317,21 +324,78 @@ export function autoSize(){ta.style.height='auto'; ta.style.height=Math.min(180,
 /* 입력창·보내기 버튼·음성 입력 연결 */
 export function initChat(){
 ta.addEventListener('input',()=>{updateCount();autoSize();});
-ta.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault(); submit();} });
+// 휴대폰 키보드에는 Shift가 없어서 Enter는 줄바꿈, 보내기는 버튼으로 해요
+const touch=matchMedia('(pointer:coarse)').matches;
+if(touch) ta.placeholder='답변을 적거나 ‘말로 답하기’를 눌러 말해 보세요.';
+ta.addEventListener('keydown',e=>{ if(!touch&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault(); submit();} });
 $('#sendBtn').onclick=submit;
 $('#timerOn').onchange=e=>{ if(S.awaiting&&e.target.checked) startTimer(); if(!e.target.checked&&S.mode!=='real') stopTimer(); };
 
-/* 음성 입력 (지원 브라우저만) */
-(function(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR) return;
-  const btn=$('#micBtn'); btn.hidden=false;
-  const rec=new SR(); rec.lang='ko-KR'; rec.interimResults=true; rec.continuous=true;
-  let base='', on=false;
-  rec.onresult=e=>{let txt=''; for(let i=e.resultIndex;i<e.results.length;i++){txt+=e.results[i][0].transcript;}
-    if(e.results[e.results.length-1].isFinal){base+=txt+' '; ta.value=base;} else ta.value=base+txt; updateCount(); autoSize();};
-  rec.onend=()=>{on=false; btn.setAttribute('aria-pressed','false');};
-  btn.onclick=()=>{ if(on){rec.stop(); return;} base=ta.value?ta.value+' ':''; try{rec.start(); on=true; btn.setAttribute('aria-pressed','true');}catch(e){} };
-})();
+initVoiceInput();
+}
+
+/* ---------- 말로 답하기 ----------
+   서버 받아쓰기(AI)를 쓸 수 있으면: 녹음 → 받아쓰기 → 입력칸에 넣기(고친 뒤 보내기). 아이폰·안드로이드 모두 돼요.
+   쓸 수 없으면: 브라우저 음성 인식(크롬·엣지 등)으로 바로 받아 적어요.
+   마이크는 말하는 동안에만 켜고 끝나면 바로 꺼요. */
+const VOICE={ rec:null, stream:null, chunks:[], t0:0, tick:null, sr:null, base:'' };
+function recNote(text, kind){
+  const n=$('#recNote'); n.hidden=!text; n.textContent=text||''; n.dataset.k=kind||'';
+}
+function micLabel(t){ $('#micBtn .mic-t').textContent=t; }
+function initVoiceInput(){
+  const btn=$('#micBtn');
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const canRec=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder);
+  if(!SR&&!canRec) return;
+  btn.hidden=false;
+  btn.onclick=()=>{
+    if(VOICE.rec) return stopVoice();
+    if(VOICE.sr){ VOICE.sr.stop(); return; }
+    if(canRec&&serverSTT()) return startVoice();
+    if(SR) return startSR(SR);
+    recNote('이 브라우저에서는 음성 입력을 쓸 수 없어요. 글로 적어 주세요.');
+  };
+  ta.addEventListener('input',()=>{ if($('#recNote').dataset.k==='done') recNote(''); });
+}
+async function startVoice(){
+  const btn=$('#micBtn');
+  try{ VOICE.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:true,autoGainControl:true}}); }
+  catch(e){ recNote(e&&e.name==='NotAllowedError'?'마이크 사용을 허락하지 않았어요. 주소창의 자물쇠(또는 aA) 메뉴에서 마이크를 허용해 주세요.':'마이크를 찾지 못했어요.'); return; }
+  const mt=pickMime(['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus']);
+  VOICE.chunks=[];
+  VOICE.rec=new MediaRecorder(VOICE.stream,{...(mt?{mimeType:mt}:{}),audioBitsPerSecond:48000});
+  VOICE.rec.ondataavailable=e=>{ if(e.data&&e.data.size) VOICE.chunks.push(e.data); };
+  VOICE.rec.start(1000);
+  VOICE.t0=performance.now();
+  btn.setAttribute('aria-pressed','true');
+  const upd=()=>{ const s=Math.floor((performance.now()-VOICE.t0)/1000); micLabel(`그만 말하기 ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`); if(s>=150) stopVoice(); };
+  upd(); VOICE.tick=setInterval(upd,500);
+  recNote('🔴 듣고 있어요. 다 말했으면 ‘그만 말하기’를 누르세요.');
+}
+async function stopVoice(){
+  const btn=$('#micBtn'), rec=VOICE.rec; if(!rec) return;
+  clearInterval(VOICE.tick); VOICE.rec=null;
+  const blob=await new Promise(res=>{ rec.onstop=()=>res(VOICE.chunks.length?new Blob(VOICE.chunks,{type:rec.mimeType||VOICE.chunks[0].type}):null); try{ rec.stop(); }catch(e){ res(null); } });
+  VOICE.stream&&VOICE.stream.getTracks().forEach(t=>t.stop()); VOICE.stream=null;
+  btn.setAttribute('aria-pressed','false'); micLabel('말로 답하기');
+  if(!blob||blob.size<1500){ recNote('소리가 녹음되지 않았어요. 다시 눌러 말해 보세요.'); return; }
+  btn.disabled=true; recNote('받아쓰는 중이에요…','busy');
+  try{
+    const text=await transcribe(blob, S.cur?fill(S.cur.q):'');
+    if(!text){ recNote('말소리를 알아듣지 못했어요. 조금 더 크게 다시 말해 보세요.'); return; }
+    ta.value=(ta.value.trim()?ta.value.trim()+' ':'')+text; updateCount(); autoSize();
+    recNote('받아쓴 내용을 확인하고, 고칠 곳이 있으면 고친 뒤 ‘보내기’를 누르세요.','done');
+  }catch(e){ recNote('받아쓰기에 실패했어요. 글로 적거나 다시 말해 보세요. ('+e.message+')'); }
+  finally{ btn.disabled=false; }
+}
+function startSR(SR){
+  const btn=$('#micBtn'), rec=new SR(); rec.lang='ko-KR'; rec.interimResults=true; rec.continuous=true;
+  VOICE.sr=rec; VOICE.base=ta.value?ta.value+' ':'';
+  rec.onresult=e=>{ let txt=''; for(let i=e.resultIndex;i<e.results.length;i++) txt+=e.results[i][0].transcript;
+    if(e.results[e.results.length-1].isFinal){ VOICE.base+=txt+' '; ta.value=VOICE.base; } else ta.value=VOICE.base+txt; updateCount(); autoSize(); };
+  rec.onend=()=>{ VOICE.sr=null; btn.setAttribute('aria-pressed','false'); micLabel('말로 답하기'); recNote('받아쓴 내용을 확인하고 ‘보내기’를 누르세요.','done'); };
+  try{ rec.start(); btn.setAttribute('aria-pressed','true'); micLabel('그만 말하기'); recNote('🔴 듣고 있어요. 다 말했으면 ‘그만 말하기’를 누르세요.'); }catch(e){ VOICE.sr=null; }
 }
 
 /* 통계 */
@@ -348,20 +412,22 @@ export function updateStats(){
 
 export function greet(kind){
   const st=statsOf(LOGS);
-  const who=AUTH.student?`<b>${esc(AUTH.student.name)}</b> 학생, `:'';
+  const name=AUTH.student?`<b>${esc(AUTH.student.name)}</b> 학생, `:'';
   const head = kind==='back'
-    ? `<p>${who}다시 왔네요! ${st.count?`지금까지 답변 <b>${st.count}개</b>, 평균 <b>${st.avg}점</b>이에요. 지난 기록은 <b>내 기록</b> 탭에서 볼 수 있어요.`:'지난번 수험표 정보를 불러왔어요.'}</p>`
+    ? `${name}다시 왔네요! ${st.count?`지금까지 답변 <b>${st.count}개</b> · 평균 <b>${st.avg}점</b>이에요.`:''}`
     : kind==='new'
-    ? `<p>${who}반가워요! 내 기록을 새로 만들었어요. 이제 어느 기기에서든 같은 학번·이름·비밀번호로 들어오면 이어서 연습할 수 있어요.</p>`
-    : '<p>안녕하세요! 오늘 모의면접을 맡은 면접관이에요.</p>';
-  bot(`${head}
-  <p><b>수험표</b>에 지원 학교와 학과를 적으면 그에 맞춘 질문을 드릴게요. 질문에 답을 보내면 <b>평가표</b>로 잘한 점과 고칠 점을 알려 드려요. 실제처럼 말로 연습하려면 <b>실전 면접</b> 탭으로 가 보세요.</p>
-  ${API.key&&sessionToken()
-    ? '<p class="time-note">답변은 AI 면접관이 평가하고, 질문이 아닌 메시지에는 AI 코치가 답해요. 앞서 나눈 대화도 기억해요.</p>'
-    : '<p class="time-note">지금은 기본 평가 모드로 동작해요.</p>'}
-  ${AUTH.guest?'<p class="time-note">저장 없이 둘러보는 중이라 기록이 남지 않아요.</p>':''}
-  ${ADMIN.on ? `<p class="time-note">교사: 모델 <code>${esc(API.model)}</code> · ${API.key?'서버에 API 키 있음':'서버에 API 키 없음(Vercel 환경 변수 <code>OPENAI_API_KEY</code>)'} · 저장소 ${esc(STORE_LABEL[API.srv&&API.srv.storage]||'-')}</p>` : ''}
-  <p class="time-note">실제 면접처럼 ‘~습니다’ 말투로, 1분 안팎(250~350자)으로 답해 보세요.</p>`);
+    ? `${name}반가워요! 같은 학번·이름·비밀번호로 어느 기기에서나 이어서 연습할 수 있어요.`
+    : '안녕하세요! 오늘 모의면접을 맡은 면접관이에요.';
+  const picked=!!S.profile.dept, sch=schoolName();
+  const aiNote = API.key&&sessionToken() ? 'AI 면접관이 평가해요' : '기본 평가로 채점해요';
+  bot(`<p>${head}</p>
+  <ol class="steps">
+    <li class="${picked?'done':''}"><b>지원 학교·학과 고르기</b><span>${picked?esc([sch,S.profile.dept].filter(Boolean).join(' ')):'수험표에서 골라 주세요. 맞춤 질문을 드려요.'}</span></li>
+    <li><b>질문 받기</b><span>아래 ‘질문 추천받기’를 눌러요.</span></li>
+    <li><b>답하고 평가표 보기</b><span>‘~습니다’ 말투로 1분(250~350자) 안팎. 글이나 말로 답해요.</span></li>
+  </ol>
+  <p class="time-note">말로 실전처럼 연습하려면 <b>실전 면접</b> 탭 · ${aiNote}${AUTH.guest?' · 저장 없이 둘러보는 중(기록이 남지 않아요)':''}</p>
+  ${ADMIN.on ? `<p class="time-note">교사: 모델 <code>${esc(API.model)}</code> · ${API.key?'서버에 API 키 있음':'서버에 API 키 없음(Vercel 환경 변수 <code>OPENAI_API_KEY</code>)'} · 저장소 ${esc(STORE_LABEL[API.srv&&API.srv.storage]||'-')}</p>` : ''}`);
   idleChips();
 }
 export function resetChat(kind){

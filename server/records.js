@@ -75,7 +75,7 @@ export function cleanEntry(e){
 
 /* 요약 갱신: 대시보드 목록을 빠르게 그리려고 학생별 합계를 따로 들고 있어요 */
 export function emptySummary(rec){
-  return { sid: rec.sid, name: rec.name, school: '', dept: '', count: 0, sum: 0, best: 0, recent: [], crit: {}, live: 0, liveAnswers: 0, chats: 0, lastAt: rec.lastAt || rec.createdAt, createdAt: rec.createdAt, temp: !!rec.temp };
+  return { sid: rec.sid, name: rec.name, virtual: !!rec.virtual, school: '', dept: '', count: 0, sum: 0, best: 0, recent: [], crit: {}, live: 0, liveAnswers: 0, chats: 0, lastAt: rec.lastAt || rec.createdAt, createdAt: rec.createdAt, temp: !!rec.temp };
 }
 export function applyToSummary(sum, entries){
   for(const e of entries){
